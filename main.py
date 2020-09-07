@@ -18,9 +18,13 @@ class DiscordBot(commands.Bot):
 
 if __name__ == "__main__":
     token = os.getenv("TOKEN", None)
+    prefix = os.getenv("PREFIX", None)
 
-    if token is None:
+    if token is None or prefix is None:
         with open("config.json") as f:
             token = json.loads(f.read())["token"]
+            prefix = json.loads(f.read())["prefix"]
 
-    DiscordBot("-").run(token)
+    keep_alive()
+
+    DiscordBot(prefix).run(token)
