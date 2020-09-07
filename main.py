@@ -22,9 +22,10 @@ if __name__ == "__main__":
 
     if token is None or prefix is None:
         with open("config.json") as f:
-            token = json.loads(f.read())["token"]
-            prefix = json.loads(f.read())["prefix"]
-
-    keep_alive()
+            t = json.loads(f.read())
+            token = t["token"]
+            prefix = t["prefix"]
+    else:
+        keep_alive()
 
     DiscordBot(prefix).run(token)
