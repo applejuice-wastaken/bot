@@ -5,6 +5,9 @@ import expression
 import humanize
 from discord.ext import commands
 
+
+parser = expression.Expression_Parser()
+
 class ExpressionParser:
     @staticmethod
     async def evaluate_expression(content, user, emoji, message):
@@ -22,16 +25,14 @@ class ExpressionParser:
 
             global_reactions += reaction.count
 
-        parser = expression.Expression_Parser(
-            {
-                "member_id": user.id,
-                "member_nick": str(user),
-                "reaction": emoji,
-                "times_reacted": times_reacted,
-                "global_reactions": global_reactions,
-                "reaction_count": reaction_count
-            }
-        )
+        parser.variables = {
+            "member_id": user.id,
+            "member_nick": str(user),
+            "reaction": emoji,
+            "times_reacted": times_reacted,
+            "global_reactions": global_reactions,
+            "reaction_count": reaction_count
+        }
 
         return_val = parser.parse(content)
 
@@ -41,13 +42,13 @@ class ExpressionParser:
     def validate_remove(content, user, emoji, message):
         return ExpressionParser.evaluate_expression(content, user, emoji, message)
 
-class InvertedExperssionParser(ExpressionParser):
+class InvertedExpressionParser(ExpressionParser):
     @staticmethod
     async def validate_remove(content, user, emoji, message):
         return not await ExpressionParser.evaluate_expression(content, user, emoji, message)
 
 
-main_chunk_names = {"if": ExpressionParser, "unless": InvertedExperssionParser}
+main_chunk_names = {"if": ExpressionParser, "unless": InvertedExpressionParser}
 restrictions = []
 
 class Restriction:
@@ -113,7 +114,6 @@ class Moderation(commands.Cog):
             to_remove = []
 
             for idx, restriction in enumerate(restrictions):
-                print(restriction.message_id, payload.message_id)
                 if time.time() < restriction.expires and payload.message_id == restriction.message_id:
                     guild = self.bot.get_guild(payload.guild_id)
                     member = guild.get_member(payload.user_id)
