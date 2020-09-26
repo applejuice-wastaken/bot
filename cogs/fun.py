@@ -17,6 +17,10 @@ class Fun(commands.Cog):
             await ctx.send('Hello {0.name}... This feels familiar.'.format(member))
         self._last_member = member
 
+    @commands.command(name="doggo")
+    async def dog(self, ctx):
+        await ctx.send("doggo")
+
 
 def setup(bot):
     bot.add_cog(Fun(bot))
