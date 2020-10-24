@@ -9,6 +9,7 @@ from discord.ext import commands
 class DiscordBot(commands.Bot):
     def __init__(self, command_prefix, **options):
         super().__init__(command_prefix, **options)
+        self.load_extension("jishaku")
 
         with open("cogs/cogs") as cogs_file:
             for line in cogs_file.readlines():
