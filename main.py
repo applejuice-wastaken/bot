@@ -2,13 +2,28 @@ import os
 import json
 import discord
 import logging
+
 from keep_alive import keep_alive
 
 from discord.ext import commands
 
+with open("config.json") as f:
+    t = json.loads(f.read())
+
+
+def get_env_value(value: str):
+    ret = os.getenv(value, None)
+    if ret is None:
+        ret = t[value]
+    return ret
+
+
 class DiscordBot(commands.Bot):
+    get_env_value = lambda self, *args, **kwargs: get_env_value(*args, **kwargs)
+
     def __init__(self, command_prefix, **options):
         super().__init__(command_prefix, **options)
+
         self.load_extension("jishaku")
 
         with open("cogs/cogs") as cogs_file:
@@ -20,19 +35,10 @@ class DiscordBot(commands.Bot):
 
 
 if __name__ == "__main__":
-    token = os.getenv("TOKEN", None)
-    prefix = os.getenv("PREFIX", None)
+    token = get_env_value("token")
+    prefix = get_env_value("prefix")
 
-    if token is None or prefix is None:
-        # probably local
-
-        with open("config.json") as f:
-            t = json.loads(f.read())
-            token = t["token"]
-            prefix = t["prefix"]
-    else:
-        # probably in the server
-
+    if str(get_env_value("run-keep-alive")) == "True":
         keep_alive()
 
     DiscordBot(prefix).run(token)
