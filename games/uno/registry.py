@@ -13,44 +13,25 @@ class CardType:
 
     @staticmethod
     def get_user_friendly(this):
-        emojis = {
-            Color.GREEN: "🟩",
-            Color.YELLOW: "🟨",
-            Color.RED: "🟥",
-            Color.BLUE: "🟦"
-        }
-
-        return f"{this.number} {emojis[this.color]}"
+        return f"{this.number} {color_to_emoji[this.color]}"
 
     @staticmethod
-    async def place(this, game):
+    async def place(this, game, attributes):
         return True
 
     @staticmethod
     async def force_place(this, game):
         return True
 
+    @staticmethod
+    async def required_attributes(this):
+        return {}
+
 
 class ChangeColorOnPlaceCardType(CardType):
     @staticmethod
-    async def place(this, game):
-        emojis = {
-            "🟩": Color.GREEN,
-            "🟨": Color.YELLOW,
-            "🟥": Color.RED,
-            "🟦": Color.BLUE
-        }
-
-        try:
-            reaction, _, time_taken = await utils.choice(game.bot, game.current_player, "Which Color?",
-                                                         "What color will be your card?", game.timeout, *emojis.keys())
-        except asyncio.TimeoutError:
-            this.color = Color.YELLOW
-        else:
-            game.timeout -= time_taken
-
-            this.color = emojis[str(reaction)]
-
+    async def place(this, game, attributes):
+        this.color = attributes["color"]
         return True
 
     @staticmethod
@@ -59,21 +40,19 @@ class ChangeColorOnPlaceCardType(CardType):
 
     @staticmethod
     def get_user_friendly(this):
-        emojis = {
-            Color.GREEN: "🟩",
-            Color.YELLOW: "🟨",
-            Color.RED: "🟥",
-            Color.BLUE: "🟦"
-        }
-
         if this.color is None:
             return f"{this.number if this.number is not None else 'Color change'} ⬛"
         else:
-            return f"{this.number if this.number is not None else 'Color change'} {emojis[this.color]}"
+            return f"{this.number if this.number is not None else 'Color change'} {color_to_emoji[this.color]}"
+
+    @staticmethod
+    async def required_attributes(this):
+        return {"color": Color}
+
 
 class ReverseDirection(CardType):
     @staticmethod
-    async def place(this, game):
+    async def place(this, game, attributes):
         if game.direction == Direction.UP_WARDS:
             game.direction = Direction.DOWN_WARDS
         else:
@@ -86,20 +65,13 @@ class ReverseDirection(CardType):
 
     @staticmethod
     def get_user_friendly(this):
-        emojis = {
-            Color.GREEN: "🟩",
-            Color.YELLOW: "🟨",
-            Color.RED: "🟥",
-            Color.BLUE: "🟦"
-        }
-
-        return f"Reverse Card {emojis[this.color]}"
+        return f"Reverse Card {color_to_emoji[this.color]}"
 
 
 class BlockPersonCardType(CardType):
     @staticmethod
-    async def place(this, game):
-        game.make_round()
+    async def place(this, game, attributes):
+        game.cycle_round()
         return True
 
     @staticmethod
@@ -108,14 +80,8 @@ class BlockPersonCardType(CardType):
 
     @staticmethod
     def get_user_friendly(this):
-        emojis = {
-            Color.GREEN: "🟩",
-            Color.YELLOW: "🟨",
-            Color.RED: "🟥",
-            Color.BLUE: "🟦"
-        }
+        return f"Block Card {color_to_emoji[this.color]}"
 
-        return f"Block Card {emojis[this.color]}"
 
 class AdversaryPayCardType(CardType):
     @staticmethod
@@ -126,43 +92,30 @@ class AdversaryPayCardType(CardType):
             return await CardType.other_place_attempt(this, other, game)
 
     @staticmethod
-    async def place(this, game):
+    async def place(this, game, attributes):
         game.cards_to_take += this.number
 
     @staticmethod
     async def force_place(this, game):
-        await AdversaryPayCardType.place(this, game)
+        await AdversaryPayCardType.place(this, game, {})
 
     @staticmethod
     def get_user_friendly(this):
-        emojis = {
-            Color.GREEN: "🟩",
-            Color.YELLOW: "🟨",
-            Color.RED: "🟥",
-            Color.BLUE: "🟦"
-        }
+        return f"+{this.number} {color_to_emoji[this.color]}"
 
-        return f"+{this.number} {emojis[this.color]}"
 
 class AdversaryPayColorOnPlaceCardType(AdversaryPayCardType, ChangeColorOnPlaceCardType):
     @staticmethod
     def get_user_friendly(this):
-        emojis = {
-            Color.GREEN: "🟩",
-            Color.YELLOW: "🟨",
-            Color.RED: "🟥",
-            Color.BLUE: "🟦"
-        }
-
         if this.color is None:
             return f"+{this.number} ⬛"
         else:
-            return f"+{this.number} {emojis[this.color]}"
+            return f"+{this.number} {color_to_emoji[this.color]}"
 
     @staticmethod
-    async def place(this, game):
-        await AdversaryPayCardType.place(this, game)
-        await ChangeColorOnPlaceCardType.place(this, game)
+    async def place(this, game, attributes):
+        await AdversaryPayCardType.place(this, game, attributes)
+        await ChangeColorOnPlaceCardType.place(this, game, attributes)
 
     @staticmethod
     async def force_place(this, game):
@@ -173,15 +126,32 @@ class AdversaryPayColorOnPlaceCardType(AdversaryPayCardType, ChangeColorOnPlaceC
     async def other_place_attempt(this, other, game):
         return await AdversaryPayCardType.other_place_attempt(this, other, game)
 
+
 class Color(Enum):
     RED = 1
     YELLOW = 2
     GREEN = 3
     BLUE = 4
 
+
 class Direction(Enum):
     UP_WARDS = 1
     DOWN_WARDS = 2
+
+
+color_to_emoji = {
+    Color.GREEN: "🟩",
+    Color.YELLOW: "🟨",
+    Color.RED: "🟥",
+    Color.BLUE: "🟦"
+}
+
+emoji_to_color = {
+    "🟩": Color.GREEN,
+    "🟨": Color.YELLOW,
+    "🟥": Color.RED,
+    "🟦": Color.BLUE
+}
 
 
 class CardInstance:
@@ -189,6 +159,13 @@ class CardInstance:
         self.number = number
         self.color = color
         self.cls = cls
+
+    def __getattr__(self, item):
+        def _(*args, **kwargs):
+            return getattr(self.cls, item)(self, *args, **kwargs)
+
+        return _
+
 
 def generate_deck():
     deck = []
@@ -215,6 +192,7 @@ def generate_deck():
 
     random.shuffle(deck)
     return deck
+
 
 def setup():
     return [CardType, ChangeColorOnPlaceCardType, BlockPersonCardType,

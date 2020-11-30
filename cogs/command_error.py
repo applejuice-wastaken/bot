@@ -10,6 +10,8 @@ class CommandError(commands.Cog):
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CheckFailure):
             await ctx.send(str(error))
+        else:
+            await ctx.send(str(error))
 
 
 def setup(bot):

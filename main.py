@@ -33,6 +33,10 @@ class DiscordBot(commands.Bot):
                 self.load_extension(f"cogs.{line}")
                 print(f"loaded {line}")
 
+    def dispatch(self, event_name, *args, **kwargs):
+        super().dispatch("event", event_name, *args, **kwargs)
+        super().dispatch(event_name, *args, **kwargs)
+
 
 if __name__ == "__main__":
     token = get_env_value("token")
