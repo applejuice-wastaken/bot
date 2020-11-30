@@ -7,8 +7,11 @@ from keep_alive import keep_alive
 
 from discord.ext import commands
 
-with open("config.json") as f:
-    t = json.loads(f.read())
+try:
+    with open("config.json") as f:
+        t = json.loads(f.read())
+except FileNotFoundError:
+    t = {}
 
 
 def get_env_value(value: str):
