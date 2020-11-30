@@ -45,7 +45,7 @@ if __name__ == "__main__":
     token = get_env_value("token")
     prefix = get_env_value("prefix")
 
-    if str(get_env_value("run-keep-alive")) == "True":
+    if str(get_env_value("run_keep_alive")) == "True":
         keep_alive()
 
     DiscordBot(prefix).run(token)
