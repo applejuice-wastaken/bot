@@ -22,7 +22,7 @@ def get_env_value(value: str):
 
 
 class DiscordBot(commands.Bot):
-    get_env_value = lambda self, *args, **kwargs: get_env_value(*args, **kwargs)
+    get_env_value = staticmethod(get_env_value)
 
     def __init__(self, command_prefix, **options):
         super().__init__(command_prefix, **options)
@@ -39,6 +39,16 @@ class DiscordBot(commands.Bot):
     def dispatch(self, event_name, *args, **kwargs):
         super().dispatch("event", event_name, *args, **kwargs)
         super().dispatch(event_name, *args, **kwargs)
+
+    async def choice(self, message, *reactions, check=lambda: True):
+        for reaction in reactions:
+            await message.add_reaction(reaction)
+
+        def c(r, u):
+            if r.message.id == message.id and self.user.id != u.id:
+                return check()
+
+        return await self.wait_for("reaction_add", check=c, timeout=40)
 
 
 if __name__ == "__main__":
