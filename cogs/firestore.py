@@ -1,7 +1,5 @@
-from collections import namedtuple, deque
-import discord
 from discord.ext import commands
-from google import auth
+import base64
 import json
 from google.cloud import firestore
 from google.oauth2 import service_account
@@ -10,9 +8,8 @@ from google.oauth2 import service_account
 class Firestore(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
         credentials = service_account.Credentials.from_service_account_info(
-            json.loads(self.bot.get_env_value("firestore"))
+            json.loads(base64.b64decode(self.bot.get_env_value("firestore")))
         )
 
         self.db = firestore.AsyncClient("quantum-database", credentials)
