@@ -50,6 +50,16 @@ class DiscordBot(commands.Bot):
 
         return await self.wait_for("reaction_add", check=c, timeout=40)
 
+    async def get_webhook_for_channel(self, channel):
+        for wb in await channel.webhooks():
+            if wb.name == "qc":
+                return wb
+        else:
+            try:
+                return await channel.create_webhook(name="qc")
+            except discord.Forbidden:
+                return None
+
 
 if __name__ == "__main__":
     token = get_env_value("token")

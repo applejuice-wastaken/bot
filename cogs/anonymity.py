@@ -71,15 +71,13 @@ class Anonymity(commands.Cog):
             user_obj["faked_name"] = selected_name
             await user_document.set(user_obj)
 
-        for wb in await channel.webhooks():
-            if wb.name == "qc":
-                webhook = wb
-                break
-        else:
-            webhook = await channel.create_webhook(name="qc")
+        webhook = await self.bot.get_webhook_for_channel(channel)
 
-        await webhook.send(content, username=f"Anon. {user_obj['faked_name']}")
-        await ctx.send("Sent")
+        if webhook is None:
+            await ctx.send("Couldn't perform function")
+        else:
+            await webhook.send(content, username=f"Anon. {user_obj['faked_name']}")
+            await ctx.send("Sent")
 
 
 def setup(bot):
