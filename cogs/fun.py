@@ -20,7 +20,7 @@ class Fun(commands.Cog):
             await webhook.send(content, username=name, avatar_url=av if av.startswith("http") else None)
 
     @commands.command(name="noping")
-    async def no_ping(self, ctx, member: discord.Member):
+    async def no_ping(self, ctx, member: discord.User):
         embed = discord.Embed(description=member.mention)
         m = await ctx.send(embed=embed)
         self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: m.delete())
