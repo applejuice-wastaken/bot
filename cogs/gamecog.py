@@ -1,11 +1,10 @@
-import asyncio
 from typing import List
 
 import discord
 from discord.ext import commands
 
 from games.Game import Game, EndGame
-from games.uno import uno
+from games.game_modules.uno import uno
 
 games = {"uno": uno.UnoGame}
 
@@ -47,12 +46,6 @@ class GameCog(commands.Cog):
 
     @commands.dm_only()
     @commands.command()
-    async def s(self, ctx, *, content):
-        if ctx.author.id in self.user_state and not isinstance(self.user_state[ctx.author.id], str):
-            await self.user_state[ctx.author.id].excluding(ctx.author).send(f"**{ctx.author.mention}:** {content}")
-
-    @commands.dm_only()
-    @commands.command()
     async def l(self, ctx):
         if ctx.author.id in self.user_state and not isinstance(self.user_state[ctx.author.id], str):
             # user is in a game
@@ -72,8 +65,7 @@ class GameCog(commands.Cog):
             for player in self.play_list[ctx.guild.id]:
                 try:
                     await player.send(f"A {game_name} game is starting from {ctx.guild.name},"
-                                      f" use {self.bot.command_prefix}s in this channel to talk "
-                                      f"to the other players and {self.bot.command_prefix}l to leave the game")
+                                      f" use {self.bot.command_prefix}l to leave the game")
 
                     players.append(player)
                 except discord.Forbidden:
@@ -104,8 +96,7 @@ class GameCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.content.startswith(f"{self.bot.command_prefix}s") or \
-                message.content.startswith(f"{self.bot.command_prefix}l"):
+        if message.content.startswith(f"{self.bot.command_prefix}l"):
             return
         for instance in self.game_instances:
             for player in instance.players:
@@ -115,10 +106,12 @@ class GameCog(commands.Cog):
                 if message.channel.id == player.dm_channel.id and \
                         message.author.id == player.id:
 
-                    try:
-                        await instance.on_message(message)
-                    except Exception as e:
-                        await instance.end_game(EndGame.ERROR, e)
+                    async with instance.lock:
+                        if instance.running:
+                            try:
+                                await instance.on_message(message)
+                            except Exception as e:
+                                await instance.end_game(EndGame.ERROR, e)
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -129,10 +122,13 @@ class GameCog(commands.Cog):
                 # check if the reaction is pertinent for this instance
                 if reaction.message.channel.id == player.dm_channel.id and \
                         user.id == player.id:
-                    try:
-                        await instance.on_reaction_add(reaction, user)
-                    except Exception as e:
-                        await instance.end_game(EndGame.ERROR, e)
+
+                    async with instance.lock:
+                        if instance.running:
+                            try:
+                                await instance.on_reaction_add(reaction, user)
+                            except Exception as e:
+                                await instance.end_game(EndGame.ERROR, e)
 
 
 def setup(bot):

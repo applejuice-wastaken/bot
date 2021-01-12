@@ -5,8 +5,8 @@ import discord
 
 from games.round.RoundAction import RoundAction
 from games.round.RoundGame import RoundGame
-from games.uno import registry
-from games.uno.registry import CardInstance
+from games.game_modules.uno import registry
+from games.game_modules.uno.registry import CardInstance
 
 
 class State(Enum):

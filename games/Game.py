@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List
@@ -22,6 +23,7 @@ class Game(ABC, MulticastIntent):
         self.running = True
         self.cog = cog
         self.players = players
+        self.lock = asyncio.Lock()
 
     async def end_game(self, code: EndGame, *args):
         if code == EndGame.DRAW:

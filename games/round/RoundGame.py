@@ -31,7 +31,9 @@ class RoundGame(Game):
             self.round_timeout -= 1
 
             if self.round_timeout == 0:
-                await self.timeout_round()
+                async with self.lock:
+                    if self.running:
+                        await self.timeout_round()
 
     async def on_start(self):
         self.round_timeout = 20
