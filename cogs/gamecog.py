@@ -1,18 +1,20 @@
 import asyncio
+from typing import List
 
 import discord
 from discord.ext import commands
 
+from games.Game import Game, EndGame
 from games.uno import uno
 
 games = {"uno": uno.UnoGame}
 
 
-class Game(commands.Cog):
+class GameCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.user_state = {}
-        self.game_instances = []
+        self.game_instances: List[Game] = []
         self.play_list = {}
 
     @commands.command()
@@ -106,29 +108,32 @@ class Game(commands.Cog):
                 message.content.startswith(f"{self.bot.command_prefix}l"):
             return
         for instance in self.game_instances:
-            func = getattr(instance, f"on_message", None)
-            if callable(func) and asyncio.iscoroutinefunction(func):
-                for player in instance.players:
-                    player: discord.User
+            for player in instance.players:
+                player: discord.User
 
-                    # check if the message is pertinent for this instance
-                    if message.channel.id == player.dm_channel.id and \
-                            message.author.id == player.id:
-                        return await func(message)
+                # check if the message is pertinent for this instance
+                if message.channel.id == player.dm_channel.id and \
+                        message.author.id == player.id:
+
+                    try:
+                        await instance.on_message(message)
+                    except Exception as e:
+                        await instance.end_game(EndGame.ERROR, e)
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         for instance in self.game_instances:
-            func = getattr(instance, f"on_reaction_add", None)
-            if callable(func) and asyncio.iscoroutinefunction(func):
-                for player in instance.players:
-                    player: discord.User
+            for player in instance.players:
+                player: discord.User
 
-                    # check if the reaction is pertinent for this instance
-                    if reaction.message.channel.id == player.dm_channel.id and \
-                            user.id == player.id:
-                        return await func(reaction, user)
+                # check if the reaction is pertinent for this instance
+                if reaction.message.channel.id == player.dm_channel.id and \
+                        user.id == player.id:
+                    try:
+                        await instance.on_reaction_add(reaction, user)
+                    except Exception as e:
+                        await instance.end_game(EndGame.ERROR, e)
 
 
 def setup(bot):
-    bot.add_cog(Game(bot))
+    bot.add_cog(GameCog(bot))

@@ -1,13 +1,14 @@
 import asyncio
 import random
-from collections import namedtuple
 from enum import Enum
-import utils
+
+import discord
+from games.round.RoundGame import Direction
 
 
 class CardType:
     @staticmethod
-    async def other_place_attempt(this, other, game):
+    def other_place_attempt(this, other, game):
         return this.color == other.color or \
                (this.number == other.number and other.number is not None) or other.color is None
 
@@ -20,11 +21,15 @@ class CardType:
         return True
 
     @staticmethod
+    async def after_place(this, game):
+        return True
+
+    @staticmethod
     async def force_place(this, game):
         return True
 
     @staticmethod
-    async def required_attributes(this):
+    def required_attributes(this):
         return {}
 
 
@@ -46,7 +51,7 @@ class ChangeColorOnPlaceCardType(CardType):
             return f"{this.number if this.number is not None else 'Color change'} {color_to_emoji[this.color]}"
 
     @staticmethod
-    async def required_attributes(this):
+    def required_attributes(this):
         return {"color": Color}
 
 
@@ -60,8 +65,8 @@ class ReverseDirection(CardType):
         return True
 
     @staticmethod
-    async def other_place_attempt(this, other, game):
-        return other.cls is ReverseDirection or await CardType.other_place_attempt(this, other, game)
+    def other_place_attempt(this, other, game):
+        return other.cls is ReverseDirection or CardType.other_place_attempt(this, other, game)
 
     @staticmethod
     def get_user_friendly(this):
@@ -70,13 +75,13 @@ class ReverseDirection(CardType):
 
 class BlockPersonCardType(CardType):
     @staticmethod
-    async def place(this, game, attributes):
-        game.cycle_round()
+    async def after_place(this, game):
+        game.cycle()
         return True
 
     @staticmethod
-    async def other_place_attempt(this, other, game):
-        return other.cls is BlockPersonCardType or await CardType.other_place_attempt(this, other, game)
+    def other_place_attempt(this, other, game):
+        return other.cls is BlockPersonCardType or CardType.other_place_attempt(this, other, game)
 
     @staticmethod
     def get_user_friendly(this):
@@ -85,11 +90,11 @@ class BlockPersonCardType(CardType):
 
 class AdversaryPayCardType(CardType):
     @staticmethod
-    async def other_place_attempt(this, other, game):
+    def other_place_attempt(this, other, game):
         if game.cards_to_take > 0:
-            return issubclass(other.cls, AdversaryPayCardType) and await CardType.other_place_attempt(this, other, game)
+            return issubclass(other.cls, AdversaryPayCardType) and CardType.other_place_attempt(this, other, game)
         else:
-            return await CardType.other_place_attempt(this, other, game)
+            return CardType.other_place_attempt(this, other, game)
 
     @staticmethod
     async def place(this, game, attributes):
@@ -123,20 +128,40 @@ class AdversaryPayColorOnPlaceCardType(AdversaryPayCardType, ChangeColorOnPlaceC
         await ChangeColorOnPlaceCardType.force_place(this, game)
 
     @staticmethod
-    async def other_place_attempt(this, other, game):
-        return await AdversaryPayCardType.other_place_attempt(this, other, game)
+    def other_place_attempt(this, other, game):
+        return AdversaryPayCardType.other_place_attempt(this, other, game)
 
 
 class Color(Enum):
+    @classmethod
+    async def on_message(cls, game, message):
+        pass
+
+    @classmethod
+    async def on_reaction_add(cls, game, reaction, user):
+        if reaction.message.id == game.bound_message.id and \
+                user.id == game.current_player.id:
+            await cls.finish(game, emoji_to_color[reaction.emoji])
+
+    @classmethod
+    async def begin(cls, game):
+        embed = discord.Embed(title="Pick a color", description="", color=0x00ff00)
+
+        game.bound_message = await game.current_player.send(embed=embed)
+
+        for emoji in emoji_to_color:
+            await game.bound_message.add_reaction(emoji)
+
+    @classmethod
+    async def finish(cls, game, value):
+        game.round_timeout += 5
+        game.attributes[game.filling_attribute] = value
+        await game.next_attribute_filling()
+
     RED = 1
     YELLOW = 2
     GREEN = 3
     BLUE = 4
-
-
-class Direction(Enum):
-    UP_WARDS = 1
-    DOWN_WARDS = 2
 
 
 color_to_emoji = {
