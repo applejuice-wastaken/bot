@@ -1,6 +1,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from enum import Enum
+from functools import partial
 from typing import List
 
 import discord
@@ -79,3 +80,21 @@ class Game(ABC, MulticastIntent):
     @property
     def bot(self):
         return self.cog.bot
+
+    def player_from_id(self, id_):
+        for player in self.players:
+            if player.id == id_:
+                return player
+
+    def after(self, seconds, callback):
+        loop = asyncio.get_running_loop()
+
+        async def _():
+            async with self.lock:
+                if self.running:
+                    try:
+                        await callback
+                    except Exception as e:
+                        await self.end_game(EndGame.ERROR, e)
+
+        return loop.call_later(seconds, partial(asyncio.ensure_future, _(), loop=loop))

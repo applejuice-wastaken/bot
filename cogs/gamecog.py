@@ -4,9 +4,10 @@ import discord
 from discord.ext import commands
 
 from games.Game import Game, EndGame
+from games.game_modules.trivia import trivia
 from games.game_modules.uno import uno
 
-games = {"uno": uno.UnoGame}
+games = {"uno": uno.UnoGame, "trivia": trivia.TriviaGame}
 
 
 class GameCog(commands.Cog):

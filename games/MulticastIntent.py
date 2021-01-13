@@ -7,6 +7,9 @@ class MulticastIntent(Generic[T]):
     def __init__(self, targets: Iterable[T]):
         self.targets = targets
 
+    def to(self, targets: Iterable[T]):
+        return MulticastIntent(targets)
+
     def excluding(self, target: T):
         return MulticastIntent(t for t in self.targets if t != target)
 
