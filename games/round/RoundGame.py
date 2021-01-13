@@ -53,6 +53,15 @@ class RoundGame(Game):
     def is_win(self):
         pass
 
+    async def player_leave(self, player):
+        if self.current_player.id == player.id:
+            await self.end_round()
+
+        if self.current_player_idx > self.players.index(player):
+            self.current_player_idx -= 1
+
+        await super(RoundGame, self).player_leave(player)
+
     async def end_round(self):
         await self.update_round_actions()
         if self.is_win():

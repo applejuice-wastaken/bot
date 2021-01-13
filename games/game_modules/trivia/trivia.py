@@ -7,6 +7,7 @@ import discord
 import random
 
 from games.Game import Game, EndGame
+from util.LineConstructor import LineConstructor
 
 
 def decode_data(data):
@@ -39,7 +40,6 @@ class TriviaGame(Game):
         super().__init__(cog, channel, players)
         self.trivia_token = None
         self.trivia_question = None
-        self.round_timeout = 10
 
         self.answers = None
         self.correct_answer_idx = None
@@ -64,15 +64,6 @@ class TriviaGame(Game):
             self.player_points[player.id] = 10
 
         await self.start_round()
-
-        while self.running:
-            await asyncio.sleep(1)
-            self.round_timeout -= 1
-
-            if self.round_timeout == 0:
-                async with self.lock:
-                    if self.running:
-                        await self.close_round()
 
     async def on_message(self, message):
         try:
@@ -102,18 +93,17 @@ class TriviaGame(Game):
             self.player_points[player_id] = round(self.player_points[player_id], 1)
             max_points = max(max_points, self.player_points[player_id])
 
-        self.barrier = max(self.barrier, max_points - self.barrier_span)
+        self.barrier = round(max(self.barrier, max_points - self.barrier_span), 1)
 
         frag = []
         lost = []
 
         for player in self.players:
             points = self.player_points[player.id]
-            if self.barrier > points:
-                lost.append(player)
             warning = ""
             if self.barrier > points:
                 warning = "(claimed by the barrier)"
+                lost.append(player)
             elif self.barrier + 2 > points:
                 warning = "(nearing the barrier)"
             frag.append(f"{player.mention}: {points} points {warning}")
@@ -123,6 +113,27 @@ class TriviaGame(Game):
         embed = discord.Embed(title="Results",
                               description="\n".join(frag),
                               color=0xaaaaaa)
+
+        frag = ["```"]
+        for player in self.players:
+            points = self.player_points[player.id]
+
+            letter_position = int((points - self.barrier) * 3)
+
+            if letter_position > 0:
+                constructor = LineConstructor(math.ceil(self.barrier_span * 3))
+
+                constructor.set(letter_position, player.name[0])
+                constructor.set(0, "|")
+                constructor.set(int(self.barrier_span * 3) - 1, ":")
+
+                frag.append(constructor.get())
+
+        frag.append("|")
+        frag.append("barrier")
+        frag.append("```")
+
+        embed.add_field(name="Field", value="\n".join(frag))
 
         await self.send(embed=embed)
 
@@ -145,12 +156,12 @@ class TriviaGame(Game):
         return True
 
     async def start_round(self):
-        self.round_timeout = 20
         for player in self.players:
             self.player_responses[player.id] = None
         await self.fetch_question()
         self.process_question()
         await self.send(embed=self.embed)
+        self.after(30, self.close_round())
 
     def process_question(self):
         color = 0x44aa44

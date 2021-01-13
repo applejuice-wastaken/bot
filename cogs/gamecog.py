@@ -72,6 +72,9 @@ class GameCog(commands.Cog):
                 except discord.Forbidden:
                     await ctx.send(f"I couldn't message {player.mention}, this user won't be playing >:(")
 
+            if not games[game_name].is_playable(len(players)):
+                await ctx.send(f"Game does not support current player count")
+
             # gets the game constructor
             instance = games[game_name](self, ctx.channel, players)
 
@@ -91,7 +94,12 @@ class GameCog(commands.Cog):
             # adds the game to the queue
 
             self.game_instances.append(instance)
-            await instance.on_start()
+
+            try:
+                await instance.on_start()
+            except Exception as e:
+                await instance.end_game(EndGame.ERROR, e)
+                raise
         else:
             await ctx.send("There's no game named that")
 
@@ -113,6 +121,7 @@ class GameCog(commands.Cog):
                                 await instance.on_message(message)
                             except Exception as e:
                                 await instance.end_game(EndGame.ERROR, e)
+                                raise
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -130,6 +139,7 @@ class GameCog(commands.Cog):
                                 await instance.on_reaction_add(reaction, user)
                             except Exception as e:
                                 await instance.end_game(EndGame.ERROR, e)
+                                raise
 
 
 def setup(bot):

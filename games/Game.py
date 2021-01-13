@@ -60,9 +60,13 @@ class Game(ABC, MulticastIntent):
 
     async def on_message(self, message):
         pass
+
+    @classmethod
+    def is_playable(cls, size):
+        return size > 1
     
-    async def is_still_playable(self):
-        return len(self.players) > 1
+    def is_still_playable(self):
+        return self.is_playable(len(self.players))
 
     async def player_leave(self, player):
         embed = discord.Embed(title="Game",
@@ -96,5 +100,6 @@ class Game(ABC, MulticastIntent):
                         await callback
                     except Exception as e:
                         await self.end_game(EndGame.ERROR, e)
+                        raise
 
         return loop.call_later(seconds, partial(asyncio.ensure_future, _(), loop=loop))
