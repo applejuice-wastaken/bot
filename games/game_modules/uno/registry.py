@@ -7,128 +7,123 @@ from games.round.RoundGame import Direction
 
 
 class CardType:
-    @staticmethod
-    def other_place_attempt(this, other, game):
+    @classmethod
+    def other_place_attempt(cls, this, other, game):
         return this.color == other.color or \
-               (this.number == other.number and other.number is not None) or other.color is None
+               (cls, this.number == other.number and other.number is not None) or other.color is None
 
-    @staticmethod
-    def get_user_friendly(this):
+    @classmethod
+    def get_user_friendly(cls, this):
         return f"{this.number} {color_to_emoji[this.color]}"
 
-    @staticmethod
-    async def place(this, game, attributes):
+    @classmethod
+    async def place(cls, this, game, attributes):
         return True
 
-    @staticmethod
-    async def after_place(this, game):
-        return True
+    @classmethod
+    async def force_place(cls, this, game):
+        await cls.place(this, game, {})
 
-    @staticmethod
-    async def force_place(this, game):
-        return True
-
-    @staticmethod
-    def required_attributes(this):
+    @classmethod
+    def required_attributes(cls, this):
         return {}
 
 
 class ChangeColorOnPlaceCardType(CardType):
-    @staticmethod
-    async def place(this, game, attributes):
+    @classmethod
+    async def place(cls, this, game, attributes):
         this.color = attributes["color"]
         return True
 
-    @staticmethod
-    async def force_place(this, game):
+    @classmethod
+    async def force_place(cls, this, game):
         this.color = Color.YELLOW
 
-    @staticmethod
-    def get_user_friendly(this):
+    @classmethod
+    def get_user_friendly(cls, this):
         if this.color is None:
             return f"{this.number if this.number is not None else 'Color change'} ⬛"
         else:
             return f"{this.number if this.number is not None else 'Color change'} {color_to_emoji[this.color]}"
 
-    @staticmethod
-    def required_attributes(this):
+    @classmethod
+    def required_attributes(cls, this):
         return {"color": Color}
 
 
 class ReverseDirection(CardType):
-    @staticmethod
-    async def place(this, game, attributes):
+    @classmethod
+    async def place(cls, this, game, attributes):
         if game.direction == Direction.UP_WARDS:
             game.direction = Direction.DOWN_WARDS
         else:
             game.direction = Direction.UP_WARDS
         return True
 
-    @staticmethod
-    def other_place_attempt(this, other, game):
+    @classmethod
+    def other_place_attempt(cls, this, other, game):
         return other.cls is ReverseDirection or CardType.other_place_attempt(this, other, game)
 
-    @staticmethod
-    def get_user_friendly(this):
+    @classmethod
+    def get_user_friendly(cls, this):
         return f"Reverse Card {color_to_emoji[this.color]}"
 
 
 class BlockPersonCardType(CardType):
-    @staticmethod
-    async def after_place(this, game):
+    @classmethod
+    async def place(cls, this, game, attributes):
         game.cycle()
-        return True
 
-    @staticmethod
-    def other_place_attempt(this, other, game):
+    @classmethod
+    def other_place_attempt(cls, this, other, game):
         return other.cls is BlockPersonCardType or CardType.other_place_attempt(this, other, game)
 
-    @staticmethod
-    def get_user_friendly(this):
+    @classmethod
+    def get_user_friendly(cls, this):
         return f"Block Card {color_to_emoji[this.color]}"
 
 
 class AdversaryPayCardType(CardType):
-    @staticmethod
-    def other_place_attempt(this, other, game):
+    @classmethod
+    def other_place_attempt(cls, this, other, game):
         if game.cards_to_take > 0:
             return issubclass(other.cls, AdversaryPayCardType) and CardType.other_place_attempt(this, other, game)
         else:
             return CardType.other_place_attempt(this, other, game)
 
-    @staticmethod
-    async def place(this, game, attributes):
+    @classmethod
+    async def place(cls, this, game, attributes):
         game.cards_to_take += this.number
 
-    @staticmethod
-    async def force_place(this, game):
+    @classmethod
+    async def force_place(cls, this, game):
         await AdversaryPayCardType.place(this, game, {})
 
-    @staticmethod
-    def get_user_friendly(this):
+    @classmethod
+    def get_user_friendly(cls, this):
         return f"+{this.number} {color_to_emoji[this.color]}"
 
 
 class AdversaryPayColorOnPlaceCardType(AdversaryPayCardType, ChangeColorOnPlaceCardType):
-    @staticmethod
-    def get_user_friendly(this):
+    @classmethod
+    def get_user_friendly(cls, this):
         if this.color is None:
             return f"+{this.number} ⬛"
         else:
             return f"+{this.number} {color_to_emoji[this.color]}"
 
-    @staticmethod
-    async def place(this, game, attributes):
+    @classmethod
+    async def place(cls, this, game, attributes):
         await AdversaryPayCardType.place(this, game, attributes)
         await ChangeColorOnPlaceCardType.place(this, game, attributes)
 
-    @staticmethod
-    async def force_place(this, game):
+    @classmethod
+    async def force_place(cls, this, game):
         await AdversaryPayCardType.force_place(this, game)
         await ChangeColorOnPlaceCardType.force_place(this, game)
 
-    @staticmethod
-    def other_place_attempt(this, other, game):
+    @classmethod
+    def other_place_attempt(cls, this, other, game):
         return AdversaryPayCardType.other_place_attempt(this, other, game)
 
 
