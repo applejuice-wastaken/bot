@@ -31,14 +31,14 @@ class RoundGame(Game):
             self.round_timeout -= 1
 
             if self.round_timeout == 0:
-                async with self.lock:
-                    if self.running:
-                        await self.timeout_round()
+                await self.call_wrap(self.timeout_round())
 
     async def on_start(self):
         self.round_timeout = 20
+
         loop = asyncio.get_running_loop()
-        loop.call_soon(partial(asyncio.ensure_future, self.begin_round(), loop=loop))
+
+        self.after(1, self.begin_round())
         loop.call_soon(partial(asyncio.ensure_future, self.decrement(), loop=loop))
 
     @abstractmethod

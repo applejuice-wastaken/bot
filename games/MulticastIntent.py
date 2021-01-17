@@ -24,9 +24,8 @@ class MulticastIntent(Generic[T]):
                 if asyncio.iscoroutine(ret):
                     coroutines.append(ret)
 
-            if len(coroutines) > 0:
-                async def _():
-                    for r in coroutines:
-                        await r
-                return _()
+            async def _():
+                for r in coroutines:
+                    await r
+            return _()
         return _

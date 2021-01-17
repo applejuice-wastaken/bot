@@ -1,13 +1,11 @@
-import asyncio
+
 import base64
 import math
-
 import aiohttp
 import discord
 import random
-
 from games.Game import Game, EndGame
-from util.LineConstructor import LineConstructor
+from games.GamePlayer import GamePlayer
 
 
 def decode_data(data):
@@ -34,8 +32,18 @@ def human_join_list(input_list: list):
     else:
         return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
 
+def bar(size, value, letter):
+    return "|" + (" " * math.floor(value * size)) + letter + (" " * math.ceil((1 - value) * size)) + ":"
+
+class TriviaGamePlayer(GamePlayer):
+    def __init__(self, user, bound_channel):
+        super().__init__(user, bound_channel)
+        self.response = None
+        self.points = 10
 
 class TriviaGame(Game):
+    game_player_class = TriviaGamePlayer
+
     def __init__(self, cog, channel, players):
         super().__init__(cog, channel, players)
         self.trivia_token = None
@@ -48,9 +56,6 @@ class TriviaGame(Game):
         self.barrier_span = 10
         self.barrier = 0
 
-        self.player_responses = {}
-        self.player_points = {}
-
     async def fetch_question(self):
         async with aiohttp.request("GET", f"https://opentdb.com/api.php?amount=1"
                                           f"&token={self.trivia_token}&encode=base64") as response:
@@ -60,18 +65,19 @@ class TriviaGame(Game):
         async with aiohttp.request("GET", "https://opentdb.com/api_token.php?command=request") as response:
             self.trivia_token = (await response.json())["token"]
 
-        for player in self.players:
-            self.player_points[player.id] = 10
-
         await self.start_round()
 
-    async def on_message(self, message):
-        try:
-            value = int(message.content)
-        except ValueError:
-            pass
+    async def on_message(self, message, player):
+        if self.trivia_question["type"] == "boolean":
+            content = message.content
+            player.response = content.lower() in ("y", "yes", "true", "1", "on", "ye", "true")
         else:
-            self.player_responses[message.author.id] = value
+            try:
+                value = int(message.content)
+            except ValueError:
+                pass
+            else:
+                player.response = value
 
     async def close_round(self):
         skew = 0
@@ -82,31 +88,40 @@ class TriviaGame(Game):
 
         max_points = -math.inf
 
-        for player_id in self.player_responses:
-            response = self.player_responses[player_id]
-            if response == self.correct_answer_idx:
-                self.player_points[player_id] += 1 + skew
-                await self.player_from_id(player_id).send(f"Correct answer (+{1 + skew} points)")
-            else:
-                self.player_points[player_id] -= 1 - skew
-                await self.player_from_id(player_id).send(f"Incorrect answer (-{1 - skew} points)")
-            self.player_points[player_id] = round(self.player_points[player_id], 1)
-            max_points = max(max_points, self.player_points[player_id])
+        got_wrongs = []
 
-        self.barrier = round(max(self.barrier, max_points - self.barrier_span), 1)
+        for player in self.players:
+            response = player.response
+
+            if self.trivia_question["type"] == "boolean":
+                correct = response == (self.trivia_question["correct_answer"] == "True")
+            else:
+                correct = response == self.correct_answer_idx
+
+            if correct:
+                player.points += 1 + skew
+                await player.send(f"Correct answer (+{1 + skew} points)")
+            else:
+                player.points -= (1 - skew) * 0.9
+                got_wrongs.append(player)
+                await player.send(f"Incorrect answer (-{round((1 - skew) * 0.9, 3)} points)")
+            player.points = round(player.points, 3)
+            max_points = max(max_points, player.points)
+
+        self.barrier = round(max(self.barrier, max_points - self.barrier_span), 3)
 
         frag = []
         lost = []
 
         for player in self.players:
-            points = self.player_points[player.id]
+            points = player.points
             warning = ""
             if self.barrier > points:
                 warning = "(claimed by the barrier)"
                 lost.append(player)
             elif self.barrier + 2 > points:
                 warning = "(nearing the barrier)"
-            frag.append(f"{player.mention}: {points} points {warning}")
+            frag.append(f"{player.mention}: {points} points {'📉' if player in got_wrongs else '📈'} {warning}")
 
         frag.append(f"Barrier: {self.barrier} points")
 
@@ -116,18 +131,12 @@ class TriviaGame(Game):
 
         frag = ["```"]
         for player in self.players:
-            points = self.player_points[player.id]
+            points = player.points
 
-            letter_position = int((points - self.barrier) * 3)
-
-            if letter_position > 0:
-                constructor = LineConstructor(math.ceil(self.barrier_span * 3))
-
-                constructor.set(letter_position, player.name[0])
-                constructor.set(0, "|")
-                constructor.set(int(self.barrier_span * 3) - 1, ":")
-
-                frag.append(constructor.get())
+            if points > self.barrier:
+                frag.append(bar(math.ceil(self.barrier_span * 4),
+                                (points - self.barrier) / self.barrier_span,
+                                player.name[0]))
 
         frag.append("|")
         frag.append("barrier")
@@ -149,7 +158,7 @@ class TriviaGame(Game):
                     await self.end_game(EndGame.WIN, self.players[0])
                     return
 
-        self.barrier_span -= 0.1
+        self.barrier_span -= 0.5
         self.after(5, self.start_round())
 
     def is_still_playable(self):
@@ -157,7 +166,7 @@ class TriviaGame(Game):
 
     async def start_round(self):
         for player in self.players:
-            self.player_responses[player.id] = None
+            player.response = None
         await self.fetch_question()
         self.process_question()
         await self.send(embed=self.embed)
@@ -174,11 +183,14 @@ class TriviaGame(Game):
                                    description=self.trivia_question["question"],
                                    color=color)
 
-        self.answers = self.trivia_question["incorrect_answers"].copy()
-        random.shuffle(self.answers)
+        if self.trivia_question["type"] == "boolean":
+            self.embed.add_field(name="Is this true or false?", value="\u200C")
+        else:
+            self.answers = self.trivia_question["incorrect_answers"].copy()
+            random.shuffle(self.answers)
 
-        self.correct_answer_idx = random.randrange(0, len(self.answers))
-        self.answers.insert(self.correct_answer_idx, self.trivia_question["correct_answer"])
+            self.correct_answer_idx = random.randrange(0, len(self.answers))
+            self.answers.insert(self.correct_answer_idx, self.trivia_question["correct_answer"])
 
-        self.embed.add_field(name="send the index of the correct answer:", value="\n"
-                             .join(f"{idx}: {answer}" for idx, answer in enumerate(self.answers)))
+            self.embed.add_field(name="send the index of the correct answer:", value="\n"
+                                 .join(f"{idx}: {answer}" for idx, answer in enumerate(self.answers)))

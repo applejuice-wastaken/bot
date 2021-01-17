@@ -1,12 +1,13 @@
 import asyncio
-from abc import ABC, abstractmethod
+import abc
+from contextlib import suppress
 from enum import Enum
 from functools import partial
-from typing import List
+from typing import List, Generic, TypeVar
 
 import discord
 from discord import Member, TextChannel, User
-
+from games.GamePlayer import GamePlayer
 from games.MulticastIntent import MulticastIntent
 
 
@@ -17,8 +18,12 @@ class EndGame(Enum):
     ERROR = 3
 
 
-class Game(ABC, MulticastIntent):
-    def __init__(self, cog, channel: TextChannel, players: List[User]):
+T = TypeVar("T")
+
+class Game(abc.ABC, MulticastIntent):
+    game_player_class: List[T] = GamePlayer
+
+    def __init__(self, cog, channel: TextChannel, players: List[T]):
         super().__init__(players)
         self.channel = channel
         self.running = True
@@ -54,11 +59,12 @@ class Game(ABC, MulticastIntent):
         self.running = False
         for player in self.players:
             del self.cog.user_state[player.id]
+        raise GameEndedException
 
     async def on_start(self):
         pass
 
-    async def on_message(self, message):
+    async def on_message(self, message, player):
         pass
 
     @classmethod
@@ -92,14 +98,21 @@ class Game(ABC, MulticastIntent):
 
     def after(self, seconds, callback):
         loop = asyncio.get_running_loop()
+        return loop.call_later(seconds, partial(asyncio.ensure_future, self.call_wrap(callback), loop=loop))
 
-        async def _():
-            async with self.lock:
-                if self.running:
-                    try:
-                        await callback
-                    except Exception as e:
+    async def call_wrap(self, coroutine):
+        async with self.lock:
+            if self.running:
+                try:
+                    print(f"entering {coroutine}")
+                    with suppress(GameEndedException):
+                        await coroutine
+                    print(f"exiting {coroutine}")
+                except Exception as e:
+                    with suppress(GameEndedException):
                         await self.end_game(EndGame.ERROR, e)
-                        raise
+                    raise
 
-        return loop.call_later(seconds, partial(asyncio.ensure_future, _(), loop=loop))
+
+class GameEndedException(Exception):
+    pass
