@@ -3,10 +3,9 @@ import abc
 from contextlib import suppress
 from enum import Enum
 from functools import partial
-from typing import List, Generic, TypeVar
-
+from typing import List, TypeVar
 import discord
-from discord import Member, TextChannel, User
+from discord import TextChannel
 from games.GamePlayer import GamePlayer
 from games.MulticastIntent import MulticastIntent
 
@@ -21,7 +20,7 @@ class EndGame(Enum):
 T = TypeVar("T")
 
 class Game(abc.ABC, MulticastIntent):
-    game_player_class: List[T] = GamePlayer
+    game_player_class: T = GamePlayer
 
     def __init__(self, cog, channel: TextChannel, players: List[T]):
         super().__init__(players)
@@ -67,6 +66,9 @@ class Game(abc.ABC, MulticastIntent):
     async def on_message(self, message, player):
         pass
 
+    async def on_reaction_add(self, reaction, player):
+        pass
+
     @classmethod
     def is_playable(cls, size):
         return size > 1
@@ -90,11 +92,6 @@ class Game(abc.ABC, MulticastIntent):
     @property
     def bot(self):
         return self.cog.bot
-
-    def player_from_id(self, id_):
-        for player in self.players:
-            if player.id == id_:
-                return player
 
     def after(self, seconds, callback):
         loop = asyncio.get_running_loop()

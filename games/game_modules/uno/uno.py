@@ -106,9 +106,9 @@ class UnoGame(RoundGame):
             elif self.state == State.FILL_ATTRIBUTES:
                 await self.attribute_request_type.on_message(self, message)
 
-    async def on_reaction_add(self, reaction, user):
+    async def on_reaction_add(self, reaction, player):
         if self.state == State.FILL_ATTRIBUTES:
-            await self.attribute_request_type.on_reaction_add(self, reaction, user)
+            await self.attribute_request_type.on_reaction_add(self, reaction, player)
 
     def deck(self, player):
         return self.players_decks[player.id]
