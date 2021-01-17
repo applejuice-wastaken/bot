@@ -93,6 +93,11 @@ class Game(abc.ABC, MulticastIntent):
     def bot(self):
         return self.cog.bot
 
+    def player_from_id(self, id_):
+        for player in self.players:
+            if player.id == id_:
+                return player
+
     def after(self, seconds, callback):
         loop = asyncio.get_running_loop()
         return loop.call_later(seconds, partial(asyncio.ensure_future, self.call_wrap(callback), loop=loop))

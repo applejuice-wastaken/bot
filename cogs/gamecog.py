@@ -51,7 +51,10 @@ class GameCog(commands.Cog):
     async def l(self, ctx):
         if ctx.author.id in self.user_state and not isinstance(self.user_state[ctx.author.id], str):
             # user is in a game
-            await self.user_state[ctx.author.id].player_leave(ctx.author)
+
+            instance: Game = self.user_state[ctx.author.id]
+
+            await instance.call_wrap(instance.player_leave(instance.player_from_id(ctx.author.id)))
 
     @commands.command()
     async def play(self, ctx, game_name):
