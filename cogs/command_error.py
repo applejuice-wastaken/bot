@@ -24,7 +24,7 @@ class CommandError(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
-        if not isinstance(error, commands.CommandInvokeError):
+        if not isinstance(error, (commands.CommandInvokeError, commands.CommandNotFound)):
             await ctx.send(str(error))
         else:
             self.advanced(type(error), error, error.__traceback__)
