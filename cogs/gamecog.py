@@ -11,40 +11,67 @@ from games.game_modules.uno import uno
 games = {"uno": uno.UnoGame, "trivia": trivia.TriviaGame}
 
 
+class GameLobby:
+    def __init__(self, game_name, owner, channel):
+        self.channel = channel
+        self.game_name = game_name
+        self.owner = owner
+        self.queued_players = []
+        self.bound_message = None
+
+        self.messages_before_resending = None
+
+    def generate_embed(self):
+        embed = discord.Embed(title=f"{self.game_name} game",
+                              color=0x333333)
+
+        if len(self.queued_players) > 0:
+            body = "\n".join(member.mention for member in self.queued_players)
+        else:
+            body = "<empty>"
+
+        embed.add_field(name="Players", value=body)
+
+        return embed
+
+    async def send_message(self):
+        self.messages_before_resending = 10
+
+        if self.bound_message is not None:
+            await self.bound_message.delete()
+        self.bound_message = await self.channel.send(embed=self.generate_embed())
+
+        await self.bound_message.add_reaction("➕")
+        await self.bound_message.add_reaction("➖")
+        await self.bound_message.add_reaction("✖")
+        await self.bound_message.add_reaction("▶")
+
+    async def update_message(self):
+        await self.bound_message.edit(embed=self.generate_embed())
+
+
 class GameCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.user_state = {}
         self.game_instances: List[Game] = []
-        self.play_list = {}
+        self.lobbies: List[GameLobby] = []
 
-    @commands.command()
-    async def join(self, ctx):
+    @commands.group()
+    async def game(self, ctx):
+        pass
+
+    @commands.guild_only()
+    @game.command()
+    async def new(self, ctx, game_name):
         """Joins the queue for a game"""
-        if ctx.guild.id not in self.play_list:
-            self.play_list[ctx.guild.id] = []
 
-        if ctx.author in self.play_list[ctx.guild.id]:
-            await ctx.send("You're already in")
-        elif ctx.author.id in self.user_state:
-            await ctx.send("You're already occupied")
-        else:
-            self.play_list[ctx.guild.id].append(ctx.author)
-            self.user_state[ctx.author.id] = ctx.guild.id
-            await ctx.send(f"Ok we have {len(self.play_list[ctx.guild.id])} users now")
+        if game_name not in games:
+            await ctx.send("This game does not exist")
 
-    @commands.command()
-    async def leave(self, ctx):
-        """Leaves the queue"""
-        if ctx.guild.id not in self.play_list:
-            self.play_list[ctx.guild.id] = []
-
-        if ctx.author not in self.play_list[ctx.guild.id]:
-            await ctx.send("You weren't in the queue")
-        else:
-            self.play_list[ctx.guild.id].remove(ctx.author)
-            del self.user_state[ctx.author.id]
-            await ctx.send(f"Ok we have {len(self.play_list[ctx.guild.id])} users now")
+        lobby = GameLobby(game_name, ctx.author, ctx.channel)
+        self.lobbies.append(lobby)
+        await lobby.send_message()
 
     @commands.dm_only()
     @commands.command()
@@ -56,54 +83,48 @@ class GameCog(commands.Cog):
 
             await instance.call_wrap(instance.player_leave(instance.player_from_id(ctx.author.id)))
 
-    @commands.command()
-    async def play(self, ctx, game_name):
-        if ctx.guild.id not in self.play_list or len(self.play_list[ctx.guild.id]) < 1:
-            await ctx.send("There is no one in the list")
+    async def begin_game_for_lobby(self, lobby: GameLobby):
+        if len(lobby.queued_players) == 0:
             return
 
-        if game_name in games:
-            await ctx.send("Ok")
+        players = []
+        instance_class = games[lobby.game_name]
 
-            players = []
-            instance_class = games[game_name]
+        for player in lobby.queued_players:
+            try:
+                await player.send(f"A {lobby.game_name} game is starting,"
+                                  f" use {self.bot.command_prefix}l to leave the game")
+            except discord.Forbidden:
+                pass
+            else:
+                players.append(instance_class.game_player_class(player, await player.create_dm()))
 
-            for player in self.play_list[ctx.guild.id]:
-                try:
-                    await player.send(f"A {game_name} game is starting from {ctx.guild.name},"
-                                      f" use {self.bot.command_prefix}l to leave the game")
+        if not instance_class.is_playable(len(players)):
+            await lobby.channel.send(f"Game does not support current player count")
+            return
 
-                    players.append(instance_class.game_player_class(player, await player.create_dm()))
-                except discord.Forbidden:
-                    await ctx.send(f"I couldn't message {player.mention}, this user won't be playing >:(")
+        # gets the game constructor
+        instance = instance_class(self, lobby.channel, players)
 
-            if not games[game_name].is_playable(len(players)):
-                await ctx.send(f"Game does not support current player count")
-                return
+        # clears the individual user state of all the people that were in the queue
+        for player in lobby.queued_players:
+            del self.user_state[player.id]
 
-            # gets the game constructor
-            instance = instance_class(self, ctx.channel, players)
+        # assigns the game instance to the players
+        # this step is separated from the one above because the players that will actually play
+        # might be different from the original queue
+        for player in players:
+            self.user_state[player.id] = instance
 
-            # clears the individual user state of all the people that were in the queue
-            for player in self.play_list[ctx.guild.id]:
-                del self.user_state[player.id]
+        # deletes the lobby
+        await lobby.bound_message.edit(embed=discord.Embed(title="ok"))
+        self.lobbies.remove(lobby)
 
-            # assigns the game instance to the players
-            # this step is separated from the one above because the players that will actually play
-            # might be different from the original queue
-            for player in players:
-                self.user_state[player.id] = instance
+        # adds the game to the queue
 
-            # deletes the queue
-            del self.play_list[ctx.guild.id]
+        self.game_instances.append(instance)
 
-            # adds the game to the queue
-
-            self.game_instances.append(instance)
-
-            await instance.call_wrap(instance.on_start())
-        else:
-            await ctx.send("There's no game named that")
+        await instance.call_wrap(instance.on_start())
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -120,8 +141,17 @@ class GameCog(commands.Cog):
                     await instance.call_wrap(instance.on_message(message, player))
                     return
 
+        for lobby in self.lobbies:
+            if lobby.channel.id == message.channel.id:
+                lobby.messages_before_resending -= 1
+                if lobby.messages_before_resending <= 0:
+                    await lobby.send_message()
+
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
+        if user.id == self.bot.user.id:
+            return
+
         for instance in self.game_instances:
             for player in instance.players:
                 player: GamePlayer
@@ -133,6 +163,32 @@ class GameCog(commands.Cog):
                     await instance.call_wrap(instance.on_reaction_add(reaction, player))
                     return
 
+        for lobby in self.lobbies:
+            if reaction.message.id == lobby.bound_message.id:
+                if reaction.emoji == "➕":
+                    if user not in lobby.queued_players and user.id not in self.user_state:
+                        self.user_state[user.id] = lobby
+                        lobby.queued_players.append(user)
+                        await lobby.update_message()
 
+                elif reaction.emoji == "➖":
+                    if user in lobby.queued_players:
+                        del self.user_state[user.id]
+                        lobby.queued_players.remove(user)
+                        await lobby.update_message()
+
+                elif reaction.emoji == "✖":
+                    if user.id == lobby.owner.id:
+                        for queued in lobby.queued_players:
+                            del self.user_state[queued.id]
+
+                        await lobby.bound_message.delete()
+                        self.lobbies.remove(lobby)
+
+                elif reaction.emoji == "▶":
+                    if user.id == lobby.owner.id:
+                        await self.begin_game_for_lobby(lobby)
+
+                return
 def setup(bot):
     bot.add_cog(GameCog(bot))
