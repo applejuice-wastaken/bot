@@ -10,7 +10,8 @@ class CardType:
     @classmethod
     def other_place_attempt(cls, this, other, game):
         return this.color == other.color or \
-               (this.number == other.number and other.number is not None) or other.color is None
+               (this.number == other.number and other.number is not None and
+                not issubclass(other.cls, AdversaryPayCardType)) or other.color is None
 
     @classmethod
     def get_user_friendly(cls, this):
