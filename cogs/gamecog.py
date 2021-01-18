@@ -68,6 +68,7 @@ class GameCog(commands.Cog):
 
         if game_name not in games:
             await ctx.send("This game does not exist")
+            return
 
         lobby = GameLobby(game_name, ctx.author, ctx.channel)
         self.lobbies.append(lobby)
@@ -183,7 +184,7 @@ class GameCog(commands.Cog):
                             del self.user_state[queued.id]
 
                         await lobby.bound_message.delete()
-                        self.lobbies.remove(lobby)
+                        self.lobbies.remove(lobby)  # this is fine because the loop is broken later
 
                 elif reaction.emoji == "▶":
                     if user.id == lobby.owner.id:
