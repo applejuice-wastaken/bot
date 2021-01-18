@@ -131,7 +131,7 @@ class UnoGame(RoundGame):
 
     def draw_until(self, condition: Callable[[CardInstance], bool]):
         ret = []
-        while condition(self.global_deck[-1]):
+        while not condition(self.global_deck[-1]):
             ret.append(self.global_deck.pop())
         ret.append(self.global_deck.pop())
         self.add_round_action(GetCardAction(self.current_player, len(ret)))
