@@ -88,9 +88,9 @@ class AdversaryPayCardType(CardType):
     @classmethod
     def other_place_attempt(cls, this, other, game):
         if game.cards_to_take > 0:
-            return issubclass(other.cls, AdversaryPayCardType) and CardType.other_place_attempt(this, other, game)
+            return issubclass(other.cls, AdversaryPayCardType)
         else:
-            return CardType.other_place_attempt(this, other, game)
+            return issubclass(other.cls, AdversaryPayCardType) or CardType.other_place_attempt(this, other, game)
 
     @classmethod
     async def place(cls, this, game, attributes):
