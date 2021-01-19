@@ -107,6 +107,9 @@ class GameCog(commands.Cog):
         # gets the game constructor
         instance = instance_class(self, lobby.channel, players)
 
+        for player in players:
+            player.game_instance = instance
+
         # clears the individual user state of all the people that were in the queue
         for player in lobby.queued_players:
             del self.user_state[player.id]

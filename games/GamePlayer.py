@@ -8,6 +8,7 @@ class GamePlayer(Messageable):
     def __init__(self, user, bound_channel):
         self.bound_channel = bound_channel
         self.user = user
+        self.game_instance = None  # it is provided later
 
     def __getattr__(self, item):
         return getattr(self.user, item)
