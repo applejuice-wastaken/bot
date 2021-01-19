@@ -17,7 +17,36 @@ class State(Enum):
 class UnoGamePlayer(GamePlayer):
     def __init__(self, user, bound_channel):
         super().__init__(user, bound_channel)
-        self.deck = []
+        self.hand = []
+
+    def draw_n_cards(self, quantity: int, add_last=True):
+        global_deck = self.game_instance.global_deck
+        ret = []
+        for i in range(quantity):
+            ret.append(global_deck.pop())
+        self.game_instance.add_round_action(GetCardAction(self, quantity))
+
+        if add_last:
+            self.hand.extend(ret)
+        else:
+            self.hand.extend(ret[:-1])
+
+        return ret
+
+    def draw_until(self, condition: Callable[[CardInstance], bool], add_last=True):
+        global_deck = self.game_instance.global_deck
+        ret = []
+        while not condition(global_deck[-1]):
+            ret.append(global_deck.pop())
+        ret.append(global_deck.pop())
+        self.game_instance.add_round_action(GetCardAction(self, len(ret)))
+
+        if add_last:
+            self.hand.extend(ret)
+        else:
+            self.hand.extend(ret[:-1])
+
+        return ret
 
 class UnoGame(RoundGame):
     game_player_class = UnoGamePlayer
@@ -44,7 +73,7 @@ class UnoGame(RoundGame):
         await super(UnoGame, self).on_start()
         for player in self.players:
             for i in range(7):
-                player.deck.append(self.global_deck.pop())
+                player.hand.append(self.global_deck.pop())
 
         self.last_played = self.global_deck.pop()
         await self.last_played.force_place(self)
@@ -65,7 +94,7 @@ class UnoGame(RoundGame):
                                        value=self.last_played.get_user_friendly(),
                                        inline=False)
         current_player_embed.add_field(name="Your Deck",
-                                       value=self.list_deck(self.current_player.deck),
+                                       value=self.list_deck(self.current_player.hand),
                                        inline=False)
 
         other_players_embed = discord.Embed(title=f"It's {self.current_player.display_name}'s Turn",
@@ -77,7 +106,7 @@ class UnoGame(RoundGame):
         self.state = State.CARD_PICK
 
     def is_win(self):
-        return len(self.current_player.deck) == 0
+        return len(self.current_player.hand) == 0
 
     async def on_message(self, message, player):
         if player.id == self.current_player.id:
@@ -90,14 +119,14 @@ class UnoGame(RoundGame):
                     if message.content.lower() == "skip":
                         await self.draw_cards()
                 else:
-                    if 0 <= selection < len(self.current_player.deck):
-                        selected_card = self.current_player.deck[selection]
+                    if 0 <= selection < len(self.current_player.hand):
+                        selected_card = self.current_player.hand[selection]
 
                         allowed = self.last_played.other_place_attempt(selected_card, self)
 
                         if allowed:
                             self.round_timeout += 5
-                            self.current_player.deck.pop(selection)
+                            self.current_player.hand.pop(selection)
                             await self.pick_card(selected_card)
                         else:
                             await self.current_player.send("You can't play that card")
@@ -110,9 +139,6 @@ class UnoGame(RoundGame):
         if self.state == State.FILL_ATTRIBUTES:
             await self.attribute_request_type.on_reaction_add(self, reaction, player)
 
-    def deck(self, player):
-        return self.players_decks[player.id]
-
     def list_deck(self, deck):
         ret = []
         for idx, card in enumerate(deck):
@@ -121,21 +147,6 @@ class UnoGame(RoundGame):
             else:
                 ret.append(f"`{idx}: `{card.get_user_friendly()}")
         return "\n".join(ret)
-
-    def draw_n_cards(self, quantity: int):
-        ret = []
-        for i in range(quantity):
-            ret.append(self.global_deck.pop())
-        self.add_round_action(GetCardAction(self.current_player, quantity))
-        return ret
-
-    def draw_until(self, condition: Callable[[CardInstance], bool]):
-        ret = []
-        while not condition(self.global_deck[-1]):
-            ret.append(self.global_deck.pop())
-        ret.append(self.global_deck.pop())
-        self.add_round_action(GetCardAction(self.current_player, len(ret)))
-        return ret
 
     async def pick_card(self, card):
         self.selected_card = card
@@ -159,19 +170,18 @@ class UnoGame(RoundGame):
 
     async def draw_cards(self, forced=False):
         if self.cards_to_take == 0:
-            drawn_cards = self.draw_until(lambda c: self.last_played.other_place_attempt(c, self))
-            self.current_player.deck.extend(drawn_cards[:-1])
+            drawn_cards = self.current_player.draw_until(lambda c: self.last_played.other_place_attempt(c, self), False)
             if forced:
                 self.last_played = drawn_cards[-1]
                 await self.last_played.force_place(self)
+                self.add_round_action(PickCardAction(self.current_player, self.last_played))
                 self.add_round_action(PlayCardAction(self.current_player, self.last_played))
                 await self.end_round()
             else:
                 await self.pick_card(drawn_cards[-1])
         else:
-            drawn_cards = self.draw_n_cards(self.cards_to_take)
+            self.current_player.draw_n_cards(self.cards_to_take)
             self.cards_to_take = 0
-            self.current_player.deck.extend(drawn_cards)
             await self.end_round()
 
     async def play_card(self):
