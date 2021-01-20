@@ -15,8 +15,8 @@ def human_join_list(input_list: list):
 
 
 class RoundGame(Game):
-    def __init__(self, cog, channel, players):
-        super().__init__(cog, channel, players)
+    def __init__(self, cog, channel, players, settings):
+        super().__init__(cog, channel, players, settings)
         self.round_timeout = None
         self.current_player_idx = 0
         self.next_player_idx = 0

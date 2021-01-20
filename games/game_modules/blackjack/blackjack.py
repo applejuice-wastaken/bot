@@ -6,6 +6,7 @@ import discord
 
 from games.Game import Game, EndGame
 from games.GamePlayer import GamePlayer
+from games.GameSetting import GameSetting
 from games.game_modules.blackjack.cards import generate_deck, CardNumber
 
 
@@ -45,10 +46,12 @@ def calculate_score(hand):
 
 class BlackJackGame(Game):
     # this game does not follow the traditional rounded game so it inherits game instead of round game
+    game_name = "blackjack"
+    game_settings = {"win_on": GameSetting("Declare win when player reaches", int, 3, lambda new_val: new_val > 0)}
     game_player_class = BlackJackGamePlayer
 
-    def __init__(self, cog, channel, players):
-        super().__init__(cog, channel, players)
+    def __init__(self, cog, channel, players, settings):
+        super().__init__(cog, channel, players, settings)
         self.round_timeout = None
         self.hitting_player_idx = 0
         self.hitting = []
@@ -210,7 +213,7 @@ class BlackJackGame(Game):
 
             if not isinstance(hand.owner, str):
                 field_name += f" ({hand.owner.points} points)"
-                if hand.owner.points >= 3:
+                if hand.owner.points >= self.settings["win_on"]:
                     game_winner = hand.owner
 
             embed.add_field(name=field_name,

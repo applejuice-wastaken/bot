@@ -1,54 +1,17 @@
-from typing import List
+from typing import List, Type, Any, Dict, Tuple, Iterable, Collection
 
 import discord
 from discord.ext import commands
 
+from cogs.gamecog.GameLobby import GameLobby
 from games.Game import Game, EndGame
 from games.GamePlayer import GamePlayer
 from games.game_modules.blackjack import blackjack
 from games.game_modules.trivia import trivia
 from games.game_modules.uno import uno
+from util.HoistMenu import HoistMenu
 
 games = {"uno": uno.UnoGame, "trivia": trivia.TriviaGame, "blackjack": blackjack.BlackJackGame}
-
-
-class GameLobby:
-    def __init__(self, game_name, owner, channel):
-        self.channel = channel
-        self.game_name = game_name
-        self.owner = owner
-        self.queued_players = []
-        self.bound_message = None
-
-        self.messages_before_resending = None
-
-    def generate_embed(self):
-        embed = discord.Embed(title=f"{self.game_name} game",
-                              color=0x333333)
-
-        if len(self.queued_players) > 0:
-            body = "\n".join(member.mention for member in self.queued_players)
-        else:
-            body = "<empty>"
-
-        embed.add_field(name="Players", value=body)
-
-        return embed
-
-    async def send_message(self):
-        self.messages_before_resending = 10
-
-        if self.bound_message is not None:
-            await self.bound_message.delete()
-        self.bound_message = await self.channel.send(embed=self.generate_embed())
-
-        await self.bound_message.add_reaction("➕")
-        await self.bound_message.add_reaction("➖")
-        await self.bound_message.add_reaction("✖")
-        await self.bound_message.add_reaction("▶")
-
-    async def update_message(self):
-        await self.bound_message.edit(embed=self.generate_embed())
 
 
 class GameCog(commands.Cog):
@@ -71,7 +34,7 @@ class GameCog(commands.Cog):
             await ctx.send("This game does not exist")
             return
 
-        lobby = GameLobby(game_name, ctx.author, ctx.channel)
+        lobby = GameLobby(ctx.channel, games[game_name], ctx.author, self)
         self.lobbies.append(lobby)
         await lobby.send_message()
 
@@ -90,11 +53,11 @@ class GameCog(commands.Cog):
             return
 
         players = []
-        instance_class = games[lobby.game_name]
+        instance_class = lobby.game_class
 
         for player in lobby.queued_players:
             try:
-                await player.send(f"A {lobby.game_name} game is starting,"
+                await player.send(f"A {instance_class.game_name} game is starting,"
                                   f" use {self.bot.command_prefix}l to leave the game")
             except discord.Forbidden:
                 pass
@@ -106,7 +69,7 @@ class GameCog(commands.Cog):
             return
 
         # gets the game constructor
-        instance = instance_class(self, lobby.channel, players)
+        instance = instance_class(self, lobby.channel, players, lobby.game_settings)
 
         for player in players:
             player.game_instance = instance
@@ -170,30 +133,5 @@ class GameCog(commands.Cog):
 
         for lobby in self.lobbies:
             if reaction.message.id == lobby.bound_message.id:
-                if reaction.emoji == "➕":
-                    if user not in lobby.queued_players and user.id not in self.user_state:
-                        self.user_state[user.id] = lobby
-                        lobby.queued_players.append(user)
-                        await lobby.update_message()
-
-                elif reaction.emoji == "➖":
-                    if user in lobby.queued_players:
-                        del self.user_state[user.id]
-                        lobby.queued_players.remove(user)
-                        await lobby.update_message()
-
-                elif reaction.emoji == "✖":
-                    if user.id == lobby.owner.id:
-                        for queued in lobby.queued_players:
-                            del self.user_state[queued.id]
-
-                        await lobby.bound_message.delete()
-                        self.lobbies.remove(lobby)  # this is fine because the loop is broken later
-
-                elif reaction.emoji == "▶":
-                    if user.id == lobby.owner.id:
-                        await self.begin_game_for_lobby(lobby)
-
+                await lobby.on_reaction(reaction, user)
                 return
-def setup(bot):
-    bot.add_cog(GameCog(bot))

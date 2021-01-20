@@ -42,10 +42,11 @@ class TriviaGamePlayer(GamePlayer):
         self.points = 10
 
 class TriviaGame(Game):
+    game_name = "trivia"
     game_player_class = TriviaGamePlayer
 
-    def __init__(self, cog, channel, players):
-        super().__init__(cog, channel, players)
+    def __init__(self, cog, channel, players, settings):
+        super().__init__(cog, channel, players, settings)
         self.trivia_token = None
         self.trivia_question = None
 

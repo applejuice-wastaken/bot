@@ -3,10 +3,11 @@ import abc
 from contextlib import suppress
 from enum import Enum
 from functools import partial
-from typing import List, TypeVar
+from typing import List, TypeVar, Dict
 import discord
 from discord import TextChannel
 from games.GamePlayer import GamePlayer
+from games.GameSetting import GameSetting
 from games.MulticastIntent import MulticastIntent
 
 
@@ -20,15 +21,18 @@ class EndGame(Enum):
 T = TypeVar("T")
 
 class Game(abc.ABC, MulticastIntent):
+    game_name = "game"
+    game_settings: Dict[str, GameSetting] = {}
     game_player_class: T = GamePlayer
 
-    def __init__(self, cog, channel: TextChannel, players: List[T]):
+    def __init__(self, cog, channel: TextChannel, players: List[T], settings):
         super().__init__(players)
         self.channel = channel
         self.running = True
         self.cog = cog
         self.players = players
         self.lock = asyncio.Lock()
+        self.settings = settings
 
     async def end_game(self, code: EndGame, *args):
         if code == EndGame.DRAW:

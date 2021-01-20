@@ -4,6 +4,7 @@ from typing import Dict, List, Callable
 import discord
 
 from games.GamePlayer import GamePlayer
+from games.GameSetting import GameSetting
 from games.round.RoundAction import RoundAction
 from games.round.RoundGame import RoundGame
 from games.game_modules.uno import registry
@@ -49,10 +50,11 @@ class UnoGamePlayer(GamePlayer):
         return ret
 
 class UnoGame(RoundGame):
+    game_name = "uno"
     game_player_class = UnoGamePlayer
 
-    def __init__(self, cog, channel, players):
-        super().__init__(cog, channel, players)
+    def __init__(self, cog, channel, players, settings):
+        super().__init__(cog, channel, players, settings)
 
         self.state = None  # holds the game current state
         self.players_decks: Dict[int, List[CardInstance]] = {}
