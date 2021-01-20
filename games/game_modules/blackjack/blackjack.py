@@ -19,8 +19,9 @@ class BlackJackGamePlayer(GamePlayer):
 BlackJackPair = namedtuple("BlackJackPair", "hand score owner")
 
 
-def concatenate_hand(hand):
-    return "\t".join(str(i) for i in hand)
+def build_hand(hand):
+    return "\t".join(str(i) for i in hand).replace("♠", "<:betterspades:801468794320453732>") \
+                                          .replace("♣", "<:betterclubs:801468950101229650>")
 
 
 def calculate_score(hand):
@@ -97,11 +98,11 @@ class BlackJackGame(Game):
         self.round_timeout = 20
         embed = discord.Embed(title="Your decision", description=f"\"hit\" or \"stay\"?", color=0x444444)
 
-        embed.add_field(name="Your hand", value=f"{concatenate_hand(self.hitting_player.hand)}\n"
+        embed.add_field(name="Your hand", value=f"{build_hand(self.hitting_player.hand)}\n"
                                                 f"(score: {calculate_score(self.hitting_player.hand)})",
                         inline=False)
 
-        embed.add_field(name="The dealer's hand", value=f"{str(self.dealer_deck[0])}\t??\n"
+        embed.add_field(name="The dealer's hand", value=f"{str(build_hand(self.dealer_deck[0:1]))}\t??\n"
                                                         f"(score (of visible): "
                                                         f"{calculate_score(self.dealer_deck[0:1])})", inline=False)
 
@@ -115,7 +116,7 @@ class BlackJackGame(Game):
         self.hitting_player.hand.append(card)
         score = calculate_score(self.hitting_player.hand)
         if score > 21:
-            hand = concatenate_hand(self.hitting_player.hand)
+            hand = build_hand(self.hitting_player.hand)
             await self.hitting_player.send(f"You busted\n"
                                            f"{hand} ({score})")
             await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} busted\n"
@@ -213,7 +214,7 @@ class BlackJackGame(Game):
                     game_winner = hand.owner
 
             embed.add_field(name=field_name,
-                            value=concatenate_hand(hand.hand) + f"({hand.score})",
+                            value=build_hand(hand.hand) + f"({hand.score})",
                             inline=False)
 
         await self.send(embed=embed)
