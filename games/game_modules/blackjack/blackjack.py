@@ -19,10 +19,11 @@ class BlackJackGamePlayer(GamePlayer):
 
 BlackJackPair = namedtuple("BlackJackPair", "hand score owner")
 
+def better_emojis(s):
+    return str(s).replace("♠", "<:betterspades:801468794320453732>").replace("♣", "<:betterclubs:801468950101229650>")
 
 def build_hand(hand):
-    return "\t".join(str(i) for i in hand).replace("♠", "<:betterspades:801468794320453732>") \
-                                          .replace("♣", "<:betterclubs:801468950101229650>")
+    return better_emojis("\t".join(str(i) for i in hand))
 
 
 def calculate_score(hand):
@@ -105,7 +106,7 @@ class BlackJackGame(Game):
                                                 f"(score: {calculate_score(self.hitting_player.hand)})",
                         inline=False)
 
-        embed.add_field(name="The dealer's hand", value=f"{str(build_hand(self.dealer_deck[0:1]))}\t??\n"
+        embed.add_field(name="The dealer's hand", value=f"{better_emojis(self.dealer_deck[0])}\t??\n"
                                                         f"(score (of visible): "
                                                         f"{calculate_score(self.dealer_deck[0:1])})", inline=False)
 
@@ -114,7 +115,7 @@ class BlackJackGame(Game):
 
     async def decision_hit(self):
         card = self.global_deck.pop()
-        await self.hitting_player.send(f"You hit {str(card)}")
+        await self.hitting_player.send(f"You hit {better_emojis(card)}")
         await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} hits")
         self.hitting_player.hand.append(card)
         score = calculate_score(self.hitting_player.hand)
