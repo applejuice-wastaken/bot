@@ -5,10 +5,11 @@ from discord.ext import commands
 
 from games.Game import Game, EndGame
 from games.GamePlayer import GamePlayer
+from games.game_modules.blackjack import blackjack
 from games.game_modules.trivia import trivia
 from games.game_modules.uno import uno
 
-games = {"uno": uno.UnoGame, "trivia": trivia.TriviaGame}
+games = {"uno": uno.UnoGame, "trivia": trivia.TriviaGame, "blackjack": blackjack.BlackJackGame}
 
 
 class GameLobby:
