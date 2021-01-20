@@ -111,7 +111,7 @@ class BlackJackGame(Game):
     async def decision_hit(self):
         card = self.global_deck.pop()
         await self.hitting_player.send(f"You hit {str(card)}")
-        await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} hits {str(card)}")
+        await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} hits")
         self.hitting_player.hand.append(card)
         score = calculate_score(self.hitting_player.hand)
         if score > 21:
