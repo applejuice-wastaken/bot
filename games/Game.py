@@ -22,7 +22,7 @@ T = TypeVar("T")
 
 class Game(abc.ABC, MulticastIntent):
     game_name = "game"
-    game_settings: Dict[str, GameSetting] = {}
+    game_specific_settings: Dict[str, GameSetting] = {}
     game_player_class: T = GamePlayer
 
     def __init__(self, cog, channel: TextChannel, players: List[T], settings):
@@ -33,6 +33,16 @@ class Game(abc.ABC, MulticastIntent):
         self.players = players
         self.lock = asyncio.Lock()
         self.settings = settings
+
+    @classmethod
+    def calculate_game_settings(cls):
+        ret = {}
+
+        for mro_cls in cls.mro()[::-1]:
+            if hasattr(mro_cls, "game_specific_settings") and "game_specific_settings" in vars(mro_cls):
+                ret.update(mro_cls.game_specific_settings)
+
+        return ret
 
     async def end_game(self, code: EndGame, *args):
         if code == EndGame.DRAW:

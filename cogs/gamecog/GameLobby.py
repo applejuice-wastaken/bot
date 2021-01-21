@@ -9,6 +9,14 @@ from util.HoistMenu import HoistMenu
 
 
 class GameLobby(HoistMenu):
+    JOIN_LOBBY = "\u2795"
+    LEAVE_LOBBY = "\u2796"
+    CANCEL_LOBBY = "\u2716\ufe0f"
+    PLAY_GAME = "\u25b6\ufe0f"
+    SETTINGS_PAGE = "\u2699\ufe0f"
+    BACK_TO_MAIN = "\u25c0\ufe0f"
+    REWRITE_SETTING = "\u270f\ufe0f"
+
     def __init__(self, channel, game_class: Type[Game], owner, cog):
         super().__init__(channel)
         self.cog = cog
@@ -17,7 +25,8 @@ class GameLobby(HoistMenu):
         self.queued_players = []
         self.showing_settings = False
         self.editing_setting = False
-        self.game_settings = dict((key, val.default) for key, val in self.game_class.game_settings.items())
+        self.game_settings_proto = game_class.calculate_game_settings()
+        self.game_settings = dict((key, val.default) for key, val in self.game_settings_proto.items())
 
     def generate_main_page(self):
         embed = discord.Embed(title=f"{self.game_class.game_name} game",
@@ -30,31 +39,31 @@ class GameLobby(HoistMenu):
 
         embed.add_field(name="Players", value=body)
 
-        if len(self.game_class.game_settings) > 0:
+        if len(self.game_settings_proto) > 0:
             embed.set_footer(text="This game contains settings")
-            reactions = "➕➖✖⚙▶"
+            reactions = (self.JOIN_LOBBY, self.LEAVE_LOBBY, self.CANCEL_LOBBY, self.SETTINGS_PAGE, self.PLAY_GAME)
         else:
-            reactions = "➕➖✖▶"
+            reactions = (self.JOIN_LOBBY, self.LEAVE_LOBBY, self.CANCEL_LOBBY, self.PLAY_GAME)
 
-        return "", {"embed": embed, "reactions": reactions}
+        return {"embed": embed, "reactions": reactions}
 
     def generate_settings_page(self):
         embed = discord.Embed(title=f"{self.game_class.game_name} game",
                               color=0x333333)
         embed.set_footer(text="This game contains settings")
 
-        if len(self.game_class.game_settings) > 0:
+        if len(self.game_settings_proto) > 0:
             body = "\n".join(f"{str(idx) + ': ' if self.editing_setting else ''}"
                              f"{val.display}: {self.game_settings[key]}"
-                             for idx, (key, val) in enumerate(self.game_class.game_settings.items()))
+                             for idx, (key, val) in enumerate(self.game_settings_proto.items()))
         else:
             body = "<empty (I don't even know how you got here)>"
 
         embed.add_field(name="Settings", value=body)
 
-        return "", {"embed": embed, "reactions": "◀✏"}
+        return {"embed": embed, "reactions": (self.BACK_TO_MAIN, self.REWRITE_SETTING)}
 
-    def build_message(self) -> Tuple[str, Dict[str, Any]]:
+    def build_message(self) -> Dict[str, Any]:
         if self.showing_settings:
             return self.generate_settings_page()
         else:
@@ -70,14 +79,15 @@ class GameLobby(HoistMenu):
         bot = self.cog.bot
 
         if self.showing_settings:
-            if reaction.emoji == "◀":
+            if reaction.emoji == self.BACK_TO_MAIN:
                 if user.id == self.owner.id:
                     self.showing_settings = False
                     await self.update_message()
 
-            elif reaction.emoji == "✏":
+            elif reaction.emoji == self.REWRITE_SETTING:
                 if user.id == self.owner.id:
                     self.editing_setting = True
+                    delete_messages = []
                     await self.update_message()
 
                     def check(m):
@@ -87,8 +97,9 @@ class GameLobby(HoistMenu):
                             return False
                         else:
                             return m.channel == self.channel and m.author == self.owner and \
-                                    0 <= _idx < len(self.game_class.game_settings)
-                    await reaction.message.channel.send("Send the index of the setting you want to change")
+                                    0 <= _idx < len(self.game_settings_proto)
+
+                    delete_messages.append(await self.channel.send("Send the index of the setting you want to change"))
 
                     try:
                         message = await bot.wait_for('message', check=check, timeout=30)
@@ -96,11 +107,15 @@ class GameLobby(HoistMenu):
                         self.editing_setting = False
                         await self.update_message()
                         await reaction.message.channel.send("timed out")
+                        with suppress(discord.Forbidden):
+                            await self.channel.delete_messages(delete_messages)
                         return
+
+                    delete_messages.append(message)
 
                     idx = int(message.content)
 
-                    picked_setting = [i for i in self.game_class.game_settings.items()][idx]
+                    picked_setting = [i for i in self.game_settings_proto.items()][idx]
 
                     self.editing_setting = False
                     await self.update_message()
@@ -108,13 +123,17 @@ class GameLobby(HoistMenu):
                     def check(m):
                         return m.channel == self.channel and m.author == self.owner
 
-                    await reaction.message.channel.send("Send the new value of this setting")
+                    delete_messages.append(await self.channel.send("Send the new value of this setting"))
 
                     try:
                         message = await bot.wait_for('message', check=check, timeout=30)
                     except asyncio.TimeoutError:
-                        await reaction.message.channel.send("timed out")
+                        await self.channel.send("timed out")
+                        with suppress(discord.Forbidden):
+                            await self.channel.delete_messages(delete_messages)
                         return
+
+                    delete_messages.append(message)
 
                     if picked_setting[1].setting_type is int:
                         try:
@@ -129,22 +148,25 @@ class GameLobby(HoistMenu):
                         self.game_settings[picked_setting[0]] = value
 
                         await self.update_message()
+
+                        with suppress(discord.Forbidden):
+                            await self.channel.delete_messages(delete_messages)
                     else:
                         await reaction.message.channel.send("this value cannot be validated")
         else:
-            if reaction.emoji == "➕":
+            if reaction.emoji == self.JOIN_LOBBY:
                 if user not in self.queued_players and user.id not in self.cog.user_state:
                     self.cog.user_state[user.id] = self
                     self.queued_players.append(user)
                     await self.update_message()
 
-            elif reaction.emoji == "➖":
+            elif reaction.emoji == self.LEAVE_LOBBY:
                 if user in self.queued_players:
                     del self.cog.user_state[user.id]
                     self.queued_players.remove(user)
                     await self.update_message()
 
-            elif reaction.emoji == "✖":
+            elif reaction.emoji == self.CANCEL_LOBBY:
                 if user.id == self.owner.id:
                     for queued in self.queued_players:
                         del self.cog.user_state[queued.id]
@@ -152,11 +174,11 @@ class GameLobby(HoistMenu):
                     await self.bound_message.delete()
                     self.cog.lobbies.remove(self)  # this is fine because the loop is broken later
 
-            elif reaction.emoji == "⚙":
-                if len(self.game_class.game_settings) > 0 and user.id == self.owner.id:
+            elif reaction.emoji == self.SETTINGS_PAGE:
+                if len(self.game_settings_proto) > 0 and user.id == self.owner.id:
                     self.showing_settings = True
                     await self.update_message()
 
-            elif reaction.emoji == "▶":
+            elif reaction.emoji == self.PLAY_GAME:
                 if user.id == self.owner.id:
                     await self.cog.begin_game_for_lobby(self)

@@ -18,17 +18,15 @@ class HoistMenu(ABC):
         self._past_reactions: Optional[List[str]] = None
 
     @abstractmethod
-    def build_message(self) -> Tuple[str, Dict[str, Any]]:
+    def build_message(self) -> Dict[str, Any]:
         raise NotImplementedError
 
     async def update(self, edit=False):
-        raw = self.build_message()
-        content = raw[0]
-        kwargs = raw[1]
-        reactions = list(kwargs.pop("reactions", ()))
+        message_kwargs = self.build_message()
+        reactions = list(message_kwargs.pop("reactions", ()))
 
         if edit:
-            await self.bound_message.edit(content=content, **kwargs)
+            await self.bound_message.edit(**message_kwargs)
 
             if self._past_reactions != reactions:
                 with suppress(discord.Forbidden):
@@ -37,7 +35,7 @@ class HoistMenu(ABC):
                 self._past_reactions = reactions
                 await send_reactions(self.bound_message, reactions)
         else:
-            self.bound_message = await self.channel.send(content, **kwargs)
+            self.bound_message = await self.channel.send(**message_kwargs)
             self._past_reactions = reactions
             await send_reactions(self.bound_message, reactions)
 

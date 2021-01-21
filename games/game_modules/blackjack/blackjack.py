@@ -47,7 +47,10 @@ def calculate_score(hand):
 class BlackJackGame(GameWithTimeout):
     # this game does not follow the traditional rounded game so it inherits game instead of round game
     game_name = "blackjack"
-    game_settings = {"win_on": GameSetting("Declare win when player reaches", int, 3, lambda new_val: new_val > 0)}
+    game_specific_settings = {
+        "win_on": GameSetting("Declare win when player reaches", int, 3, lambda new_val: new_val > 0),
+        "after_round_time": GameSetting("Time gap after round ending", int, 10, lambda new_val: new_val > 0)
+    }
     game_player_class = BlackJackGamePlayer
 
     def __init__(self, cog, channel, players, settings):
@@ -219,7 +222,8 @@ class BlackJackGame(GameWithTimeout):
 
     @property
     def hitting_player(self):
-        return self.hitting[self.hitting_player_idx]
+        if len(self.hitting) > 0:
+            return self.hitting[self.hitting_player_idx]
 
     async def timeout(self):
         await self.decision_stay()
