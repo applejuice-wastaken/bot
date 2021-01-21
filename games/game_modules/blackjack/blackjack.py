@@ -1,12 +1,11 @@
-import asyncio
 from collections import namedtuple
-from functools import partial
 
 import discord
 
-from games.Game import Game, EndGame
+from games.Game import EndGame
 from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
+from games.GameHasTimeout import GameWithTimeout
 from games.game_modules.blackjack.cards import generate_deck, CardNumber
 
 
@@ -45,7 +44,7 @@ def calculate_score(hand):
     return ret
 
 
-class BlackJackGame(Game):
+class BlackJackGame(GameWithTimeout):
     # this game does not follow the traditional rounded game so it inherits game instead of round game
     game_name = "blackjack"
     game_settings = {"win_on": GameSetting("Declare win when player reaches", int, 3, lambda new_val: new_val > 0)}
@@ -53,24 +52,13 @@ class BlackJackGame(Game):
 
     def __init__(self, cog, channel, players, settings):
         super().__init__(cog, channel, players, settings)
-        self.round_timeout = None
         self.hitting_player_idx = 0
         self.hitting = []
         self.global_deck = None
         self.dealer_deck = None
 
-    async def decrement(self):
-        while self.running:
-            await asyncio.sleep(1)
-            self.round_timeout -= 1
-
-            if self.round_timeout == 0:
-                await self.call_wrap(self.timeout_decision())
-
     async def on_start(self):
-        self.round_timeout = 20
-        loop = asyncio.get_running_loop()
-        loop.call_soon(partial(asyncio.ensure_future, self.decrement(), loop=loop))
+        await super(BlackJackGame, self).on_start()
         await self.round_start()
 
     async def on_message(self, message, player):
@@ -99,7 +87,7 @@ class BlackJackGame(Game):
         await self.decision_start()
 
     async def decision_start(self):
-        self.round_timeout = 20
+        self.reset_timer()
         embed = discord.Embed(title="Your decision", description=f"\"hit\" or \"stay\"?", color=0x444444)
 
         embed.add_field(name="Your hand", value=f"{build_hand(self.hitting_player.hand)}\n"
@@ -227,13 +215,13 @@ class BlackJackGame(Game):
         if game_winner is not None:
             await self.end_game(EndGame.WIN, game_winner)
         else:
-            self.after(10, self.round_start())
+            self.after(self.settings["after_round_time"], self.round_start())
 
     @property
     def hitting_player(self):
         return self.hitting[self.hitting_player_idx]
 
-    async def timeout_decision(self):
+    async def timeout(self):
         await self.decision_stay()
 
     async def player_leave(self, player):

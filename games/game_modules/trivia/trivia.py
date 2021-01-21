@@ -6,6 +6,7 @@ import discord
 import random
 from games.Game import Game, EndGame
 from games.GamePlayer import GamePlayer
+from games.GameHasTimeout import GameWithTimeout
 
 
 def decode_data(data):
@@ -41,7 +42,7 @@ class TriviaGamePlayer(GamePlayer):
         self.response = None
         self.points = 10
 
-class TriviaGame(Game):
+class TriviaGame(GameWithTimeout):
     game_name = "trivia"
     game_player_class = TriviaGamePlayer
 
@@ -63,6 +64,7 @@ class TriviaGame(Game):
             self.trivia_question = decode_data((await response.json())["results"][0])
 
     async def on_start(self):
+        await super(TriviaGame, self).on_start()
         async with aiohttp.request("GET", "https://opentdb.com/api_token.php?command=request") as response:
             self.trivia_token = (await response.json())["token"]
 
@@ -162,8 +164,8 @@ class TriviaGame(Game):
         self.barrier_span -= 0.5
         self.after(5, self.start_round())
 
-    def is_still_playable(self):
-        return True
+    async def timeout(self):
+        await self.close_round()
 
     async def start_round(self):
         for player in self.players:
@@ -171,7 +173,7 @@ class TriviaGame(Game):
         await self.fetch_question()
         self.process_question()
         await self.send(embed=self.embed)
-        self.after(30, self.close_round())
+        self.reset_timer()
 
     def process_question(self):
         color = 0x44aa44
@@ -195,3 +197,7 @@ class TriviaGame(Game):
 
             self.embed.add_field(name="send the index of the correct answer:", value="\n"
                                  .join(f"{idx}: {answer}" for idx, answer in enumerate(self.answers)))
+
+    @classmethod
+    def is_playable(cls, size):
+        return size > 0

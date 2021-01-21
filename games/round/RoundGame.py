@@ -2,7 +2,8 @@ import asyncio
 from abc import abstractmethod
 from enum import Enum
 from functools import partial
-from games.Game import Game, EndGame
+from games.Game import EndGame
+from games.GameHasTimeout import GameWithTimeout
 
 
 def human_join_list(input_list: list):
@@ -14,10 +15,9 @@ def human_join_list(input_list: list):
         return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
 
 
-class RoundGame(Game):
+class RoundGame(GameWithTimeout):
     def __init__(self, cog, channel, players, settings):
         super().__init__(cog, channel, players, settings)
-        self.round_timeout = None
         self.current_player_idx = 0
         self.next_player_idx = 0
         self.direction = Direction.DOWN_WARDS
@@ -25,21 +25,9 @@ class RoundGame(Game):
         self.queued_round_actions = []
         self.total_round_actions = []
 
-    async def decrement(self):
-        while self.running:
-            await asyncio.sleep(1)
-            self.round_timeout -= 1
-
-            if self.round_timeout == 0:
-                await self.call_wrap(self.timeout_round())
-
     async def on_start(self):
-        self.round_timeout = 20
-
-        loop = asyncio.get_running_loop()
-
+        await super(RoundGame, self).on_start()
         self.after(1, self.begin_round())
-        loop.call_soon(partial(asyncio.ensure_future, self.decrement(), loop=loop))
 
     @abstractmethod
     async def begin_round(self):
@@ -48,6 +36,9 @@ class RoundGame(Game):
     @abstractmethod
     async def timeout_round(self):
         pass
+
+    async def timeout(self):
+        await self.timeout_round()
 
     @abstractmethod
     def is_win(self):
@@ -70,7 +61,7 @@ class RoundGame(Game):
             self.cycle()
             self.current_player_idx = self.next_player_idx
             await self.begin_round()
-            self.round_timeout = 20
+            self.reset_timer()
 
     def add_round_action(self, action):
         self.queued_round_actions.append(action)

@@ -4,7 +4,7 @@ from typing import Dict, List, Callable
 import discord
 
 from games.GamePlayer import GamePlayer
-from games.GameSetting import GameSetting
+from games.GameHasTimeout import GameWithTimeout
 from games.round.RoundAction import RoundAction
 from games.round.RoundGame import RoundGame
 from games.game_modules.uno import registry
