@@ -43,7 +43,7 @@ class TriviaGamePlayer(GamePlayer):
     def __init__(self, user, bound_channel):
         super().__init__(user, bound_channel)
         self.response = None
-        self.points = 10
+        self.points = 0
 
 
 class TriviaGame(GameWithTimeout):
@@ -67,6 +67,9 @@ class TriviaGame(GameWithTimeout):
 
         self.barrier_span = self.settings["initial_barrier_span"]
         self.barrier = 0
+
+        for player in self.players:
+            player.points = self.settings["initial_barrier_span"]
 
     async def fetch_question(self):
         async with aiohttp.request("GET", f"https://opentdb.com/api.php?amount=1"
