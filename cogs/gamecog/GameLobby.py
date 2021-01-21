@@ -31,6 +31,7 @@ class GameLobby(HoistMenu):
         self.queued_players = []
         self.showing_settings = False
         self.editing_setting = False
+        self.editing_which = None
         self.game_settings_proto = game_class.calculate_game_settings()
         self.game_settings = dict((key, val.default) for key, val in self.game_settings_proto.items())
 
@@ -60,7 +61,8 @@ class GameLobby(HoistMenu):
 
         if len(self.game_settings_proto) > 0:
             body = "\n".join(f"{str(idx) + ': ' if self.editing_setting else ''}"
-                             f"{val.display}: {self.game_settings[key]}"
+                             f"{'__' if self.editing_which == idx else ''}{val.display}: {self.game_settings[key]}"
+                             f"{'__' if self.editing_which == idx else ''}"
                              for idx, (key, val) in enumerate(self.game_settings_proto.items()))
         else:
             body = "<empty (I don't even know how you got here)>"
@@ -124,6 +126,7 @@ class GameLobby(HoistMenu):
                     picked_setting = [i for i in self.game_settings_proto.items()][idx]
 
                     self.editing_setting = False
+                    self.editing_which = idx
                     await self.update_message()
 
                     def check(m):
@@ -135,9 +138,13 @@ class GameLobby(HoistMenu):
                         message = await bot.wait_for('message', check=check, timeout=30)
                     except asyncio.TimeoutError:
                         await self.channel.send("timed out", delete_after=10)
+                        self.editing_which = None
+                        await self.update_message()
                         with suppress(discord.Forbidden):
                             await self.channel.delete_messages(delete_messages)
                         return
+
+                    self.editing_which = None
 
                     delete_messages.append(message)
 
@@ -151,10 +158,9 @@ class GameLobby(HoistMenu):
 
                     if picked_setting[1].validator(value):
                         self.game_settings[picked_setting[0]] = value
-
-                        await self.update_message()
                     else:
                         await reaction.message.channel.send("this value cannot be validated", delete_after=10)
+                    await self.update_message()
                     with suppress(discord.Forbidden):
                         await self.channel.delete_messages(delete_messages)
         else:
