@@ -7,6 +7,12 @@ import discord
 from games.Game import Game
 from util.HoistMenu import HoistMenu
 
+def convert(value, data_type: Type):
+    if data_type is int:
+        return int(value)
+
+    if data_type is float:
+        return float(value)
 
 class GameLobby(HoistMenu):
     JOIN_LOBBY = "\u2795"
@@ -106,7 +112,7 @@ class GameLobby(HoistMenu):
                     except asyncio.TimeoutError:
                         self.editing_setting = False
                         await self.update_message()
-                        await reaction.message.channel.send("timed out")
+                        await reaction.message.channel.send("timed out", delete_after=10)
                         with suppress(discord.Forbidden):
                             await self.channel.delete_messages(delete_messages)
                         return
@@ -128,31 +134,29 @@ class GameLobby(HoistMenu):
                     try:
                         message = await bot.wait_for('message', check=check, timeout=30)
                     except asyncio.TimeoutError:
-                        await self.channel.send("timed out")
+                        await self.channel.send("timed out", delete_after=10)
                         with suppress(discord.Forbidden):
                             await self.channel.delete_messages(delete_messages)
                         return
 
                     delete_messages.append(message)
 
-                    if picked_setting[1].setting_type is int:
-                        try:
-                            value = int(message.content)
-                        except ValueError:
-                            await reaction.message.channel.send("This isn't a number")
-                            return
-                    else:
-                        raise
+                    try:
+                        value = convert(message.content, picked_setting[1].setting_type)
+                    except ValueError:
+                        await reaction.message.channel.send("This isn't a valid input", delete_after=10)
+                        with suppress(discord.Forbidden):
+                            await self.channel.delete_messages(delete_messages)
+                        return
 
                     if picked_setting[1].validator(value):
                         self.game_settings[picked_setting[0]] = value
 
                         await self.update_message()
-
-                        with suppress(discord.Forbidden):
-                            await self.channel.delete_messages(delete_messages)
                     else:
-                        await reaction.message.channel.send("this value cannot be validated")
+                        await reaction.message.channel.send("this value cannot be validated", delete_after=10)
+                    with suppress(discord.Forbidden):
+                        await self.channel.delete_messages(delete_messages)
         else:
             if reaction.emoji == self.JOIN_LOBBY:
                 if user not in self.queued_players and user.id not in self.cog.user_state:

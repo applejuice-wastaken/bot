@@ -1,4 +1,3 @@
-
 import base64
 import math
 import aiohttp
@@ -7,6 +6,7 @@ import random
 from games.Game import Game, EndGame
 from games.GamePlayer import GamePlayer
 from games.GameHasTimeout import GameWithTimeout
+from games.GameSetting import GameSetting
 
 
 def decode_data(data):
@@ -25,6 +25,7 @@ def decode_data(data):
                 data[idx] = decode_data(data[idx])
     return data
 
+
 def human_join_list(input_list: list):
     if len(input_list) == 0:
         return ""
@@ -33,8 +34,10 @@ def human_join_list(input_list: list):
     else:
         return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
 
+
 def bar(size, value, letter):
     return "|" + (" " * math.floor(value * size)) + letter + (" " * math.ceil((1 - value) * size)) + ":"
+
 
 class TriviaGamePlayer(GamePlayer):
     def __init__(self, user, bound_channel):
@@ -42,8 +45,15 @@ class TriviaGamePlayer(GamePlayer):
         self.response = None
         self.points = 10
 
+
 class TriviaGame(GameWithTimeout):
     game_name = "trivia"
+    game_specific_settings = {
+        "initial_barrier_span": GameSetting("The initial barrier span", int, 10, lambda new_val: new_val > 3),
+        "span_decrease_for_round": GameSetting("How much the barrier span decreases each round", float, 0.5),
+        "answer_multiplier": GameSetting("How much should the final answer points be multiplied", float, 1,
+                                         lambda new_val: new_val != 0)
+    }
     game_player_class = TriviaGamePlayer
 
     def __init__(self, cog, channel, players, settings):
@@ -55,7 +65,7 @@ class TriviaGame(GameWithTimeout):
         self.correct_answer_idx = None
         self.embed = None
 
-        self.barrier_span = 10
+        self.barrier_span = self.settings["initial_barrier_span"]
         self.barrier = 0
 
     async def fetch_question(self):
@@ -102,12 +112,14 @@ class TriviaGame(GameWithTimeout):
                 correct = response == self.correct_answer_idx
 
             if correct:
-                player.points += 1 + skew
-                await player.send(f"Correct answer (+{1 + skew} points)")
+                points = (1 + skew) * self.settings["answer_multiplier"]
+                player.points += points
+                await player.send(f"Correct answer (+{points} points)")
             else:
-                player.points -= (1 - skew) * 0.9
+                points = (1 - skew) * 0.9 * self.settings["answer_multiplier"]
+                player.points -= points
                 got_wrongs.append(player)
-                await player.send(f"Incorrect answer (-{round((1 - skew) * 0.9, 3)} points)")
+                await player.send(f"Incorrect answer (-{round(points, 3)} points)")
             player.points = round(player.points, 3)
             max_points = max(max_points, player.points)
 
@@ -137,7 +149,7 @@ class TriviaGame(GameWithTimeout):
             points = player.points
 
             if points > self.barrier:
-                frag.append(bar(math.ceil(self.barrier_span * 4),
+                frag.append(bar(math.ceil((self.barrier_span / self.settings["initial_barrier_span"]) * 40),
                                 (points - self.barrier) / self.barrier_span,
                                 player.name[0]))
 
@@ -161,7 +173,7 @@ class TriviaGame(GameWithTimeout):
                     await self.end_game(EndGame.WIN, self.players[0])
                     return
 
-        self.barrier_span -= 0.5
+        self.barrier_span -= self.settings["span_decrease_for_round"]
         self.after(5, self.start_round())
 
     async def timeout(self):
