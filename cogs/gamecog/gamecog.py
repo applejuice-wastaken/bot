@@ -1,15 +1,14 @@
-from typing import List, Type, Any, Dict, Tuple, Iterable, Collection
+from typing import List
 
 import discord
 from discord.ext import commands
 
 from cogs.gamecog.GameLobby import GameLobby
-from games.Game import Game, EndGame
+from games.Game import Game
 from games.GamePlayer import GamePlayer
 from games.game_modules.blackjack import blackjack
 from games.game_modules.trivia import trivia
 from games.game_modules.uno import uno
-from util.HoistMenu import HoistMenu
 
 games = {"uno": uno.UnoGame, "trivia": trivia.TriviaGame, "blackjack": blackjack.BlackJackGame}
 
@@ -28,15 +27,13 @@ class GameCog(commands.Cog):
     @commands.guild_only()
     @game.command()
     async def new(self, ctx, game_name):
-        """Joins the queue for a game"""
-
+        """creates a lobby"""
         if game_name not in games:
             await ctx.send("This game does not exist")
             return
 
-        lobby = GameLobby(ctx.channel, games[game_name], ctx.author, self)
-        self.lobbies.append(lobby)
-        await lobby.send_message()
+        self.lobbies.append(await self.bot.get_cog("ReactMenu")
+                            .instantiate_new(GameLobby, ctx.channel, games[game_name], ctx.author, self))
 
     @commands.dm_only()
     @commands.command()
@@ -105,15 +102,8 @@ class GameCog(commands.Cog):
                 # check if the message is pertinent for this instance
                 if message.channel.id == player.bound_channel.id and \
                         message.author.id == player.id:
-
                     await instance.call_wrap(instance.on_message(message, player))
                     return
-
-        for lobby in self.lobbies:
-            if lobby.channel.id == message.channel.id:
-                lobby.messages_before_resending -= 1
-                if lobby.messages_before_resending <= 0:
-                    await lobby.send_message()
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -127,11 +117,5 @@ class GameCog(commands.Cog):
                 # check if the reaction is pertinent for this instance
                 if reaction.message.channel.id == player.bound_channel.id and \
                         user.id == player.id:
-
                     await instance.call_wrap(instance.on_reaction_add(reaction, player))
                     return
-
-        for lobby in self.lobbies:
-            if reaction.message.id == lobby.bound_message.id:
-                await lobby.on_reaction(reaction, user)
-                return
