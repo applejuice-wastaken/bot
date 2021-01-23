@@ -5,26 +5,47 @@ import discord
 import inspect
 from discord.ext import commands
 
-def output_dir(d: dict):
+
+# noinspection PyTypeChecker
+def _output_dir(indent, d: dict):
     idx = 0
     for pair in d.items():
-        print(f'\t\t{repr(pair[0])} = {repr(pair[1])}', file=sys.stderr)
+        output_variable(indent, repr(pair[0]), repr(pair[1]))
         idx += 1
         if idx > 10:
-            print(f'\t\t...', file=sys.stderr)
+            print("\t" * indent + '...', file=sys.stderr)
             return
 
-def output_list(lst: list):
+def _output_list(indent, lst: list):
     for idx, value in enumerate(lst):
-        print(f'\t\t{idx} = {repr(value)}', file=sys.stderr)
+        output_variable(indent, idx, value)
         if idx > 10:
-            print(f'\t\t...', file=sys.stderr)
+            print("\t" * indent + '...', file=sys.stderr)
             return
+
+def output_variable(indent, name, value):
+    if type(value) in custom_output:
+        inline_output = object.__repr__(value)
+        custom = custom_output[type(value)]
+
+    elif hasattr(value, "stack_variable_output") and callable(value.stack_variable_output):
+        inline_output = object.__repr__(value)
+        custom = value.stack_variable_output
+
+    else:
+        inline_output = repr(value)
+
+        def custom(_, __):
+            pass
+
+    print("\t" * indent + f'{name} = {inline_output}', file=sys.stderr)
+    if indent < 10:
+        custom(indent + 1, value)
 
 
 custom_output = {
-    dict: output_dir,
-    list: output_list
+    dict: _output_dir,
+    list: _output_list
 }
 
 class CommandError(commands.Cog):
@@ -56,18 +77,8 @@ class CommandError(commands.Cog):
             print(header, file=sys.stderr)
             for k, v in active_vars.items():
                 if not (k.startswith('__') and k.endswith('__')) and not inspect.ismodule(v):
+                    output_variable(1, k, v)
 
-                    if type(v) in custom_output:
-                        inline_output = object.__repr__(v)
-                        custom = custom_output[type(v)]
-                    else:
-                        inline_output = repr(v)
-
-                        def custom(_):
-                            pass
-
-                    print(f'\t{k} = {inline_output}', file=sys.stderr)
-                    custom(v)
             for_locals = False
 
     @commands.Cog.listener()
