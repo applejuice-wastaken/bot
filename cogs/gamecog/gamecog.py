@@ -71,19 +71,11 @@ class GameCog(commands.Cog):
         for player in players:
             player.game_instance = instance
 
-        # clears the individual user state of all the people that were in the queue
-        for player in lobby.queued_players:
-            del self.user_state[player.id]
+        # deletes the lobby
+        await lobby.remove()
 
-        # assigns the game instance to the players
-        # this step is separated from the one above because the players that will actually play
-        # might be different from the original queue
         for player in players:
             self.user_state[player.id] = instance
-
-        # deletes the lobby
-        await lobby.bound_message.edit(embed=discord.Embed(title="ok"))
-        self.lobbies.remove(lobby)
 
         # adds the game to the queue
 
