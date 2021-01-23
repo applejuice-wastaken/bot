@@ -68,6 +68,7 @@ class ReactiveMessage(ABC):
         self.bound_message: Optional[discord.Message] = None
         self.current_render = None
         self.requires_render = False
+        self.running = True
 
         self.lock = asyncio.Lock()
 
@@ -99,13 +100,19 @@ class ReactiveMessage(ABC):
 
             self.current_render = d
         else:
+            to_delete = None
+
             if self.bound_message is not None:
-                await self.bound_message.delete()
+                to_delete = self.bound_message
 
             self.current_render = d.copy()
             reactions = d.pop("reactions", None)
 
             self.bound_message = await self.channel.send(**d)
+
+            if to_delete is not None:
+                await to_delete.delete()
+                # the old message is called now because of the cog possibly removing this instance from this
 
             if reactions is not None:
                 await send_reactions(self.bound_message, reactions)
@@ -141,5 +148,9 @@ class ReactiveMessage(ABC):
         await self.on_reaction_add(reaction, user)
 
     async def remove(self):
-        await self.bound_message.delete()
-        self.cog.react_menus.remove(self)
+        if self.running:
+            print("removing")
+            self.running = False
+            with suppress(discord.NotFound):
+                await self.bound_message.delete()
+            self.cog.react_menus.remove(self)

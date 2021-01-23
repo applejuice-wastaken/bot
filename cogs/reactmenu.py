@@ -18,6 +18,13 @@ class ReactMenu(commands.Cog):
         return new_instance
 
     @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        for menu in self.react_menus:
+            if menu.bound_message.id == message.id:
+                await menu.remove()
+                return
+
+    @commands.Cog.listener()
     async def on_message(self, message):
         for menu in self.react_menus:
             if menu.channel == message.channel:
