@@ -66,7 +66,7 @@ class TestReactiveMessageHoist(TestReactiveMessageBasis, HoistedReactiveMessage)
 
 
 class RoutePage(Page):
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
+    def render_message(self) -> Dict[str, Any]:
         embed = discord.Embed(description="This command tests the routing capability of the reactive_message module")
 
         embed.add_field(name="Map",
@@ -74,40 +74,39 @@ class RoutePage(Page):
 
         return dict(content="Route page", embed=embed)
 
-    async def on_message(self, message, reactive_message, args: dict):
+    async def on_message(self, message):
         if len(message.content) == 1:
-            reactive_message.route = message.content
+            self.ctx.route = message.content
 
 
 class SubPage(Page, ABC):
-    async def on_message(self, message, reactive_message, args: dict):
+    async def on_message(self, message):
         if message.content == "back":
-            reactive_message.route = ""
+            self.ctx.route = ""
 
 
 class APage(SubPage):
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
+    def render_message(self) -> Dict[str, Any]:
         return dict(content="Page A! (type back to go back to root)",
-                    reactions=(reactive_message.ONE, reactive_message.TWO, reactive_message.FIVE))
+                    reactions=(self.ctx.ONE, self.ctx.TWO, self.ctx.FIVE))
 
 
 class BPage(SubPage):
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
+    def render_message(self) -> Dict[str, Any]:
         return dict(content="Woah page B! (type back to go back to root or something else idk)",
-                    reactions=(reactive_message.ONE, reactive_message.TWO, reactive_message.FIVE))
+                    reactions=(self.ctx.ONE, self.ctx.TWO, self.ctx.FIVE))
 
-    async def on_message(self, message, reactive_message, args: dict):
-        await super(BPage, self).on_message(message, reactive_message, args)
+    async def on_message(self, message):
+        await super(BPage, self).on_message(message)
         if message.content != "back":
-            reactive_message.route = f"b.{message.content[:10]}"
+            self.ctx.route = f"b.{message.content[:10]}"
 
 
 class RestPage(SubPage):
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
-        return dict(content=f"Page named {args['n']}\n"
-                            f"(route: {reactive_message.route})",
-                    reactions=(reactive_message.ONE, reactive_message.FIVE,
-                               reactive_message.TWO))
+    def render_message(self) -> Dict[str, Any]:
+        return dict(content=f"Page named {self.ctx['n']}\n"
+                            f"(route: {self.ctx.route})",
+                    reactions=(self.ctx.ONE, self.ctx.FIVE, self.ctx.TWO))
 
 
 class TestRouteReactiveMessage(RoutedReactiveMessage):

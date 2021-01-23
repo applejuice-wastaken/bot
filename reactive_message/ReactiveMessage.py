@@ -118,7 +118,7 @@ class ReactiveMessage(ABC):
                 await send_reactions(self.bound_message, reactions)
 
     async def update(self, edit=False):
-        message_kwargs = self.render_message()
+        message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
         await self.update_from_dict(message_kwargs, edit)
 
     async def check_update(self):

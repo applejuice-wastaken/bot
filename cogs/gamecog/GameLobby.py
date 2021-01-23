@@ -26,18 +26,18 @@ class MainPage(Page):
     PLAY_GAME = "\u25b6\ufe0f"
     SETTINGS_PAGE = "\u2699\ufe0f"
 
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{reactive_message.game_class.game_name} game",
+    def render_message(self) -> Dict[str, Any]:
+        embed = discord.Embed(title=f"{self.ctx.game_class.game_name} game",
                               color=0x333333)
 
-        if len(reactive_message.queued_players) > 0:
-            body = "\n".join(member.mention for member in reactive_message.queued_players)
+        if len(self.ctx.queued_players) > 0:
+            body = "\n".join(member.mention for member in self.ctx.queued_players)
         else:
             body = "<empty>"
 
         embed.add_field(name="Players", value=body)
 
-        if len(reactive_message.game_settings_proto) > 0:
+        if len(self.ctx.game_settings_proto) > 0:
             embed.set_footer(text="This game contains settings")
             reactions = (self.JOIN_LOBBY, self.LEAVE_LOBBY, self.CANCEL_LOBBY, self.SETTINGS_PAGE, self.PLAY_GAME)
         else:
@@ -45,31 +45,31 @@ class MainPage(Page):
 
         return dict(embed=embed, reactions=reactions)
 
-    async def on_reaction_add(self, reaction, user, reactive_message, args: dict):
+    async def on_reaction_add(self, reaction, user):
         reactive_message: GameLobby
         if reaction.emoji == self.JOIN_LOBBY:
-            if user not in reactive_message.queued_players and user.id not in reactive_message.game_cog.user_state:
-                reactive_message.game_cog.user_state[user.id] = self
-                reactive_message.queued_players.append(user)
+            if user not in self.ctx.queued_players and user.id not in self.ctx.game_cog.user_state:
+                self.ctx.game_cog.user_state[user.id] = self
+                self.ctx.queued_players.append(user)
 
         elif reaction.emoji == self.LEAVE_LOBBY:
-            if user in reactive_message.queued_players:
-                del reactive_message.game_cog.user_state[user.id]
-                reactive_message.queued_players.remove(user)
+            if user in self.ctx.queued_players:
+                del self.ctx.game_cog.user_state[user.id]
+                self.ctx.queued_players.remove(user)
 
         elif reaction.emoji == self.CANCEL_LOBBY:
-            if user.id == reactive_message.owner.id:
-                await reactive_message.remove()
+            if user.id == self.ctx.owner.id:
+                await self.ctx.remove()
 
         elif reaction.emoji == self.SETTINGS_PAGE:
-            if len(reactive_message.game_settings_proto) > 0 and user.id == reactive_message.owner.id:
-                reactive_message.route = "settings"
+            if len(self.ctx.game_settings_proto) > 0 and user.id == self.ctx.owner.id:
+                self.ctx.route = "settings"
 
         elif reaction.emoji == self.PLAY_GAME:
-            if user.id == reactive_message.owner.id:
-                await reactive_message.game_cog.begin_game_for_lobby(self)
+            if user.id == self.ctx.owner.id:
+                await self.ctx.game_cog.begin_game_for_lobby(self.current_message)
 
-        reactive_message.requires_render = True
+        self.ctx.requires_render = True
 
 
 async def request(bot, reactive_message, text, value_type, check):
@@ -93,14 +93,14 @@ class SettingsPage(Page):
     BACK_TO_MAIN = "\u25c0\ufe0f"
     REWRITE_SETTING = "\u270f\ufe0f"
 
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{reactive_message.game_class.game_name} game",
+    def render_message(self) -> Dict[str, Any]:
+        embed = discord.Embed(title=f"{self.ctx.game_class.game_name} game",
                               color=0x333333)
 
-        if len(reactive_message.game_settings_proto) > 0:
+        if len(self.ctx.game_settings_proto) > 0:
             body = "\n".join(f"{idx}: {val.display}: "
-                             f"{reactive_message.game_settings[key]}"
-                             for idx, (key, val) in enumerate(reactive_message.game_settings_proto.items()))
+                             f"{self.ctx.game_settings[key]}"
+                             for idx, (key, val) in enumerate(self.ctx.game_settings_proto.items()))
         else:
             body = "<empty (I don't even know how you got here)>"
 
@@ -108,15 +108,15 @@ class SettingsPage(Page):
 
         return dict(embed=embed, reactions=(self.BACK_TO_MAIN, self.REWRITE_SETTING))
 
-    async def on_reaction_add(self, reaction, user, reactive_message, args: dict):
+    async def on_reaction_add(self, reaction, user):
         reactive_message: GameLobby
         if reaction.emoji == self.BACK_TO_MAIN:
-            if user.id == reactive_message.owner.id:
-                reactive_message.route = ""
+            if user.id == self.ctx.owner.id:
+                self.ctx.route = ""
 
         elif reaction.emoji == self.REWRITE_SETTING:
-            if user.id == reactive_message.owner.id:
-                bot = reactive_message.game_cog.bot
+            if user.id == self.ctx.owner.id:
+                bot = self.ctx.game_cog.bot
 
                 def check(m):
                     try:
@@ -127,26 +127,25 @@ class SettingsPage(Page):
                         return m.channel == reactive_message.channel and m.author == reactive_message.owner and \
                                0 <= _idx < len(reactive_message.game_settings_proto)
 
-                idx = await request(bot, reactive_message,
-                                    "Send the index of the setting you want to access", int, check)
+                idx = await request(bot, self.ctx, "Send the index of the setting you want to access", int, check)
 
                 if idx is not None:
-                    picked_setting = [i for i in reactive_message.game_settings_proto.items()][idx]
+                    picked_setting = [i for i in self.ctx.game_settings_proto.items()][idx]
                     picked_setting: Tuple[str, GameSetting]
 
                     if picked_setting[1].setting_type is list:
-                        reactive_message.route = f"settings.{picked_setting[0]}"
+                        self.ctx.route = f"settings.{picked_setting[0]}"
                     else:
                         def check(m):
                             return m.channel == reactive_message.channel and m.author == reactive_message.owner
 
-                        val = await request(bot, reactive_message,
+                        val = await request(bot, self.ctx,
                                             "Send the new value of this setting", picked_setting[1].setting_type, check)
 
                         if val is not None:
-                            reactive_message.game_settings[picked_setting[0]] = val
+                            self.ctx.game_settings[picked_setting[0]] = val
 
-        reactive_message.requires_render = True
+        self.ctx.requires_render = True
 
 
 class InspectorPage(Page):
@@ -155,11 +154,11 @@ class InspectorPage(Page):
     ADD_VALUE = "\u2795"
     REMOVE_VALUE = "\u2796"
 
-    def render_message(self, reactive_message, args: dict) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{reactive_message.game_class.game_name} game",
+    def render_message(self) -> Dict[str, Any]:
+        embed = discord.Embed(title=f"{self.ctx.game_class.game_name} game",
                               color=0x333333)
 
-        lst = reactive_message.game_settings_proto[args["path"]]
+        lst = self.ctx.game_settings_proto[self.ctx["path"]]
 
         if len(lst) > 0:
             body = "\n".join(lst)
