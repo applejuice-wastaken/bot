@@ -30,6 +30,9 @@ custom_output = {
 class CommandError(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        clazz = type(self.bot)
+        self.old = clazz.on_error
+        clazz.on_error = self.on_error
         sys.excepthook = self.advanced
 
     def advanced(self, type_, value: BaseException, tb):
@@ -52,7 +55,7 @@ class CommandError(commands.Cog):
             header = 'Locals:' if for_locals else 'Globals:'
             print(header, file=sys.stderr)
             for k, v in active_vars.items():
-                if not (k.startswith('__') and k.endswith('__') and not inspect.ismodule(v)):
+                if not (k.startswith('__') and k.endswith('__')) and not inspect.ismodule(v):
 
                     if type(v) in custom_output:
                         inline_output = object.__repr__(v)
@@ -75,15 +78,19 @@ class CommandError(commands.Cog):
             print("Error while executing command", file=sys.stderr)
             self.advanced(type(error), error, error.__traceback__)
 
-    @commands.Cog.listener()
     async def on_error(self, name, *args, **kwargs):
         error_type, error, tb = sys.exc_info()
-        if isinstance(error, commands.CommandInvokeError):
-            print(f"Error while executing event {name}", file=sys.stderr)
-            print(f"Args: {args}", file=sys.stderr)
-            print(f"Kwargs: {kwargs}", file=sys.stderr)
-            print(file=sys.stderr)
-            self.advanced(error_type, error, tb)
+
+        print(f"Error while executing event {name}", file=sys.stderr)
+        print(f"Args: {args}", file=sys.stderr)
+        print(f"Kwargs: {kwargs}", file=sys.stderr)
+        print(file=sys.stderr)
+        self.advanced(error_type, error, tb)
+
+    def cog_unload(self):
+        clazz = type(self.bot)
+        clazz.on_error = self.old
+
 
 def setup(bot):
     bot.add_cog(CommandError(bot))
