@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import suppress
 from typing import Type, Dict, Any, Tuple
-
+import base64
 import discord
 
 from games.Game import Game
@@ -12,6 +12,9 @@ from reactive_message.RoutedReactiveMessage import RoutedReactiveMessage, Page, 
 
 
 def convert(value, data_type: Type):
+    if data_type is str:
+        return value
+
     if data_type is int:
         return int(value)
 
@@ -92,6 +95,8 @@ async def request(bot, reactive_message, text, value_type, check):
 class SettingsPage(Page):
     BACK_TO_MAIN = "\u25c0\ufe0f"
     REWRITE_SETTING = "\u270f\ufe0f"
+    SAVE = "\U0001f4be"
+    LOAD = "\U0001f4e5"
 
     def render_message(self) -> Dict[str, Any]:
         embed = discord.Embed(title=f"{self.ctx.game_class.game_name} game",
@@ -106,13 +111,45 @@ class SettingsPage(Page):
 
         embed.add_field(name="Settings", value=body)
 
-        return dict(embed=embed, reactions=(self.BACK_TO_MAIN, self.REWRITE_SETTING))
+        return dict(embed=embed, reactions=(self.BACK_TO_MAIN, self.REWRITE_SETTING, self.SAVE, self.LOAD))
 
     async def on_reaction_add(self, reaction, user):
         reactive_message: GameLobby
         if reaction.emoji == self.BACK_TO_MAIN:
             if user.id == self.ctx.owner.id:
                 self.ctx.route = ""
+
+        elif reaction.emoji == self.SAVE:
+            to_save = {}
+
+            for key, val in self.ctx.game_settings_proto.items():
+                if self.ctx.game_settings[key] != val.default:
+                    to_save[key] = self.ctx.game_settings[key]
+
+            if len(to_save) > 0:
+                out = ";".join(f"{key}:{val}" for key, val in to_save.items()).encode()
+
+                result = base64.b85encode(out).decode()
+
+                await self.ctx.channel.send(f"Code: `{result}`")
+            else:
+                await self.ctx.channel.send("The settings are all set to default values", delete_after=10)
+
+        elif reaction.emoji == self.LOAD:
+            bot = self.ctx.game_cog.bot
+
+            def check(m):
+                return m.channel == self.ctx.channel and m.author == self.ctx.owner
+
+            code = await request(bot, self.ctx, "Send code", str, check)
+
+            content = base64.b85decode(code.encode()).decode()
+
+            to_load = dict(particle.split(":")[:2] for particle in content.split(";"))
+
+            for key, val in self.ctx.game_settings_proto.items():
+                if key in to_load:
+                    self.ctx.game_settings[key] = convert(to_load[key], val.setting_type)
 
         elif reaction.emoji == self.REWRITE_SETTING:
             if user.id == self.ctx.owner.id:
@@ -124,8 +161,8 @@ class SettingsPage(Page):
                     except ValueError:
                         return False
                     else:
-                        return m.channel == reactive_message.channel and m.author == reactive_message.owner and \
-                               0 <= _idx < len(reactive_message.game_settings_proto)
+                        return m.channel == self.ctx.channel and m.author == self.ctx.owner and \
+                               0 <= _idx < len(self.ctx.game_settings_proto)
 
                 idx = await request(bot, self.ctx, "Send the index of the setting you want to access", int, check)
 
@@ -133,48 +170,21 @@ class SettingsPage(Page):
                     picked_setting = [i for i in self.ctx.game_settings_proto.items()][idx]
                     picked_setting: Tuple[str, GameSetting]
 
-                    if picked_setting[1].setting_type is list:
-                        self.ctx.route = f"settings.{picked_setting[0]}"
-                    else:
-                        def check(m):
-                            return m.channel == reactive_message.channel and m.author == reactive_message.owner
+                    def check(m):
+                        return m.channel == self.ctx.channel and m.author == self.ctx.owner
 
-                        val = await request(bot, self.ctx,
-                                            "Send the new value of this setting", picked_setting[1].setting_type, check)
+                    val = await request(bot, self.ctx,
+                                        "Send the new value of this setting", picked_setting[1].setting_type, check)
 
-                        if val is not None:
-                            self.ctx.game_settings[picked_setting[0]] = val
+                    if val is not None:
+                        self.ctx.game_settings[picked_setting[0]] = val
 
         self.ctx.requires_render = True
 
 
-class InspectorPage(Page):
-    BACK = "\u25c0\ufe0f"
-    TO_ROOT = "\u23ea"
-    ADD_VALUE = "\u2795"
-    REMOVE_VALUE = "\u2796"
-
-    def render_message(self) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{self.ctx.game_class.game_name} game",
-                              color=0x333333)
-
-        lst = self.ctx.game_settings_proto[self.ctx["path"]]
-
-        if len(lst) > 0:
-            body = "\n".join(lst)
-        else:
-            body = "<empty>"
-
-        embed.add_field(name="Values", value=body)
-
-        return dict(embed=embed, reactions=(self.TO_ROOT, self.BACK, self.ADD_VALUE, self.REMOVE_VALUE))
-
-
 class GameLobby(RoutedReactiveMessage, HoistedReactiveMessage):
     ROUTE = (Route()
-             .add_route("settings", Route()
-                        .add_fallback("path", InspectorPage())
-                        .base(SettingsPage()))
+             .add_route("settings", SettingsPage())
              .base(MainPage()))
 
     editing_which = RenderingProperty("editing_which")
