@@ -8,7 +8,7 @@ from discord.ext import commands
 def output_dir(d: dict):
     idx = 0
     for pair in d.items():
-        print(f'\t\t{pair[0]} = {pair[1]}', file=sys.stderr)
+        print(f'\t\t{repr(pair[0])} = {repr(pair[1])}', file=sys.stderr)
         idx += 1
         if idx > 10:
             print(f'\t\t...', file=sys.stderr)
@@ -16,7 +16,7 @@ def output_dir(d: dict):
 
 def output_list(lst: list):
     for idx, value in enumerate(lst):
-        print(f'\t\t{idx} = {value}', file=sys.stderr)
+        print(f'\t\t{idx} = {repr(value)}', file=sys.stderr)
         if idx > 10:
             print(f'\t\t...', file=sys.stderr)
             return
@@ -41,7 +41,14 @@ class CommandError(commands.Cog):
         traceback.print_exception(type_, value, tb)
         print(file=sys.stderr)
         for_locals = True
-        for active_vars in [tb.tb_next.tb_frame.f_locals, tb.tb_next.tb_frame.f_globals]:
+
+        while True:
+            if tb.tb_next is None:
+                break
+            tb = tb.tb_next
+        frame = tb.tb_frame
+
+        for active_vars in [frame.f_locals, frame.f_globals]:
             header = 'Locals:' if for_locals else 'Globals:'
             print(header, file=sys.stderr)
             for k, v in active_vars.items():
@@ -68,6 +75,15 @@ class CommandError(commands.Cog):
             print("Error while executing command", file=sys.stderr)
             self.advanced(type(error), error, error.__traceback__)
 
+    @commands.Cog.listener()
+    async def on_error(self, name, *args, **kwargs):
+        error_type, error, tb = sys.exc_info()
+        if isinstance(error, commands.CommandInvokeError):
+            print(f"Error while executing event {name}", file=sys.stderr)
+            print(f"Args: {args}", file=sys.stderr)
+            print(f"Kwargs: {kwargs}", file=sys.stderr)
+            print(file=sys.stderr)
+            self.advanced(error_type, error, tb)
 
 def setup(bot):
     bot.add_cog(CommandError(bot))
