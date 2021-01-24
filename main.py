@@ -36,6 +36,9 @@ class DiscordBot(commands.Bot):
                 self.load_extension(f"cogs.{line}")
                 print(f"loaded {line}")
 
+    async def on_ready(self):
+        await self.change_presence(activity=discord.Game(name=f"prefix {self.command_prefix}command"))
+
     def dispatch(self, event_name, *args, **kwargs):
         super().dispatch("event", event_name, *args, **kwargs)
         super().dispatch(event_name, *args, **kwargs)
