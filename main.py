@@ -43,13 +43,13 @@ class DiscordBot(commands.Bot):
         super().dispatch("event", event_name, *args, **kwargs)
         super().dispatch(event_name, *args, **kwargs)
 
-    async def choice(self, message, *reactions, check=lambda: True):
+    async def choice(self, message, *reactions, check=lambda r, u: True):
         for reaction in reactions:
             await message.add_reaction(reaction)
 
         def c(r, u):
             if r.message.id == message.id and self.user.id != u.id:
-                return check()
+                return check(r, u)
 
         return await self.wait_for("reaction_add", check=c, timeout=40)
 
