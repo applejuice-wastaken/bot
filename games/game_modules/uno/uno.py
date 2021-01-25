@@ -25,6 +25,7 @@ class UnoGamePlayer(GamePlayer):
         ret = []
         for i in range(quantity):
             ret.append(global_deck.pop())
+            self.game_instance.check_regen_deck()
         self.game_instance.add_round_action(GetCardAction(self, quantity))
 
         if add_last:
@@ -39,6 +40,7 @@ class UnoGamePlayer(GamePlayer):
         ret = []
         while not condition(global_deck[-1]):
             ret.append(global_deck.pop())
+            self.game_instance.check_regen_deck()
         ret.append(global_deck.pop())
         self.game_instance.add_round_action(GetCardAction(self, len(ret)))
 
@@ -84,9 +86,6 @@ class UnoGame(RoundGame):
         await self.draw_cards(True)
 
     async def begin_round(self):
-        if len(self.global_deck) < 10:
-            self.global_deck.extend(self.generate_deck())
-            await self.send("Deck has been regenerated")
         tmp = f'get {self.cards_to_take} cards' if self.cards_to_take > 0 else 'skip'
 
         current_player_embed = discord.Embed(title="It's your turn",
@@ -109,6 +108,11 @@ class UnoGame(RoundGame):
 
     def is_win(self):
         return len(self.current_player.hand) == 0
+
+    async def check_regen_deck(self):
+        if len(self.global_deck) < 10:
+            self.global_deck.extend(self.generate_deck())
+            self.add_round_action(DeckRegen())
 
     async def on_message(self, message, player):
         if player.id == self.current_player.id:
@@ -217,3 +221,10 @@ class PlayCardAction(RoundAction):
 
     def represent(self, is_first_person) -> str:
         return f"play{'' if is_first_person else 's'} {self.card.get_user_friendly()}"
+
+class DeckRegen(RoundAction):
+    def __init__(self):
+        super().__init__(None)
+
+    def represent(self, is_first_person) -> str:
+        return f"deck regenerated"
