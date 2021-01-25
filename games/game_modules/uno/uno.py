@@ -109,7 +109,7 @@ class UnoGame(RoundGame):
     def is_win(self):
         return len(self.current_player.hand) == 0
 
-    async def check_regen_deck(self):
+    def check_regen_deck(self):
         if len(self.global_deck) < 10:
             self.global_deck.extend(self.generate_deck())
             self.add_round_action(DeckRegen())
