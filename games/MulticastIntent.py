@@ -5,7 +5,7 @@ T = TypeVar('T')
 
 class MulticastIntent(Generic[T]):
     def __init__(self, targets: Iterable[T]):
-        self.targets = targets
+        self.targets = list(targets)
 
     def to(self, targets: Iterable[T]):
         return MulticastIntent(targets)
