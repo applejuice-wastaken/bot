@@ -17,6 +17,9 @@ class MulticastIntent(Generic[T]):
         return MulticastIntent(t for t in (*self.targets, target))
 
     def __getattr__(self, item):
+        for target in self.targets:
+            getattr(target, item)
+
         def _(*args, **kwargs):
             coroutines = []
             for target in self.targets:
