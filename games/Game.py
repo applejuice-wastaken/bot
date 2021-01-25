@@ -3,7 +3,7 @@ import abc
 from contextlib import suppress
 from enum import Enum
 from functools import partial
-from typing import List, TypeVar, Dict
+from typing import List, TypeVar, Dict, Union
 import discord
 from discord import TextChannel
 from games.GamePlayer import GamePlayer
@@ -16,6 +16,10 @@ class EndGame(Enum):
     WIN = 1
     INSUFFICIENT_PLAYERS = 2
     ERROR = 3
+
+class LeaveReason(Enum):
+    CHANNEL_BLOCKED = 0
+    BY_COMMAND = 1
 
 
 T = TypeVar("T")
@@ -90,9 +94,18 @@ class Game(abc.ABC, MulticastIntent):
     def is_still_playable(self):
         return self.is_playable(len(self.players))
 
-    async def player_leave(self, player):
+    async def player_leave(self, player, reason: Union[LeaveReason, str] = LeaveReason.BY_COMMAND):
+        if isinstance(reason, str):
+            text = reason
+        elif reason == LeaveReason.BY_COMMAND:
+            text = "the leave command was triggered"
+        elif reason == LeaveReason.CHANNEL_BLOCKED:
+            text = "they left because I could no longer send messages to their bound channel"
+        else:
+            text = ""
+
         embed = discord.Embed(title="Game",
-                              description=f"{player.mention} left",
+                              description=f"{player.mention} left\n{text}",
                               color=0x333333)
 
         await self.send(embed=embed)
@@ -131,7 +144,7 @@ class Game(abc.ABC, MulticastIntent):
                             to_leave.append(player)
 
                     for player in to_leave:
-                        await self.player_leave(player)
+                        await self.player_leave(player, LeaveReason.CHANNEL_BLOCKED)
 
                     print(f"exiting {coroutine}")
                 except Exception as e:

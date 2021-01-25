@@ -2,7 +2,7 @@ import asyncio
 from abc import abstractmethod
 from enum import Enum
 from functools import partial
-from games.Game import EndGame
+from games.Game import EndGame, LeaveReason
 from games.GameHasTimeout import GameWithTimeout
 
 
@@ -44,14 +44,14 @@ class RoundGame(GameWithTimeout):
     def is_win(self):
         pass
 
-    async def player_leave(self, player):
+    async def player_leave(self, player, reason=LeaveReason.BY_COMMAND):
         if self.current_player.id == player.id:
             await self.end_round()
 
         if self.current_player_idx > self.players.index(player):
             self.current_player_idx -= 1
 
-        await super(RoundGame, self).player_leave(player)
+        await super(RoundGame, self).player_leave(player, reason)
 
     async def end_round(self):
         await self.update_round_actions()

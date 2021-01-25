@@ -2,7 +2,7 @@ from collections import namedtuple
 
 import discord
 
-from games.Game import EndGame
+from games.Game import EndGame, LeaveReason
 from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
 from games.GameHasTimeout import GameWithTimeout
@@ -228,11 +228,11 @@ class BlackJackGame(GameWithTimeout):
     async def timeout(self):
         await self.decision_stay()
 
-    async def player_leave(self, player):
+    async def player_leave(self, player, reason=LeaveReason.BY_COMMAND):
         if player == self.hitting_player:
             await self.decision_stay()
 
-        await super(BlackJackGame, self).player_leave(player)
+        await super(BlackJackGame, self).player_leave(player, reason)
 
     @classmethod
     def is_playable(cls, size):

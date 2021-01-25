@@ -170,7 +170,7 @@ class TriviaGame(GameWithTimeout):
                 return
             else:
                 for player in lost:
-                    await self.player_leave(player)
+                    await self.player_leave(player, "They got claimed by the barrier")
 
                 if len(self.players) == 1:
                     await self.end_game(EndGame.WIN, self.players[0])
