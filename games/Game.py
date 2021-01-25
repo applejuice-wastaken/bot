@@ -123,6 +123,16 @@ class Game(abc.ABC, MulticastIntent):
                     print(f"entering {coroutine}")
                     with suppress(GameEndedException):
                         await coroutine
+
+                    to_leave = []
+
+                    for player in self.players:
+                        if not player.able_to_send_messages:
+                            to_leave.append(player)
+
+                    for player in to_leave:
+                        await self.player_leave(player)
+
                     print(f"exiting {coroutine}")
                 except Exception as e:
                     with suppress(GameEndedException):
