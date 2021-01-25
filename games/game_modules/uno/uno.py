@@ -1,11 +1,11 @@
 from enum import Enum
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Collection
 
 import discord
 
 from games.GamePlayer import GamePlayer
 from games.GameHasTimeout import GameWithTimeout
-from games.round.RoundAction import RoundAction
+from games.round.RoundAction import RoundAction, Verb, Literal, Category
 from games.round.RoundGame import RoundGame
 from games.game_modules.uno import registry
 from games.game_modules.uno.registry import CardInstance
@@ -202,8 +202,9 @@ class GetCardAction(RoundAction):
         super().__init__(player)
         self.number = number
 
-    def represent(self, is_first_person) -> str:
-        return f"get{'' if is_first_person else 's'} {self.number} card{'' if self.number == 1 else 's'}"
+    def represent(self, is_first_person) -> Collection[Category]:
+        return Verb(f"get{'' if is_first_person else 's'} {str(self.number)}"),\
+               Literal(f"card{'' if self.number == 1 else 's'}")
 
 
 class PickCardAction(RoundAction):
@@ -211,16 +212,18 @@ class PickCardAction(RoundAction):
         super().__init__(player)
         self.card = card
 
-    def represent(self, is_first_person) -> str:
-        return f"select{'' if is_first_person else 's'} {self.card.get_user_friendly()}"
+    def represent(self, is_first_person) -> Collection[Category]:
+        return Verb(f"select{'' if is_first_person else 's'}"),\
+               Literal(self.card.get_user_friendly())
 
 class PlayCardAction(RoundAction):
     def __init__(self, player, card):
         super().__init__(player)
         self.card = card
 
-    def represent(self, is_first_person) -> str:
-        return f"play{'' if is_first_person else 's'} {self.card.get_user_friendly()}"
+    def represent(self, is_first_person) -> Collection[Category]:
+        return Verb(f"play{'' if is_first_person else 's'}"),\
+               Literal(self.card.get_user_friendly())
 
 class DeckRegen(RoundAction):
     def __init__(self):
