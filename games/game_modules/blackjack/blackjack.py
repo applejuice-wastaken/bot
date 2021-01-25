@@ -232,6 +232,9 @@ class BlackJackGame(GameWithTimeout):
         if player == self.hitting_player:
             await self.decision_stay()
 
+        elif player in self.hitting:
+            self.hitting.remove(player)
+
         await super(BlackJackGame, self).player_leave(player, reason)
 
     @classmethod
