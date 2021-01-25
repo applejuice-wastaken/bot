@@ -151,6 +151,8 @@ class ReactiveMessage(ABC):
         if self.running:
             print("removing")
             self.running = False
+            bound = self.bound_message
+            self.bound_message = None
             with suppress(discord.NotFound):
-                await self.bound_message.delete()
+                await bound.delete()
             self.cog.react_menus.remove(self)
