@@ -1,2 +1,4 @@
 discord
 jishaku
+flask
+firebase-admin
