@@ -65,6 +65,9 @@ class BlackJackGame(GameWithTimeout):
         await self.round_start()
 
     async def on_message(self, message, player):
+        if self.hitting_player is None:
+            return
+
         if player.id == self.hitting_player.id:
             op = message.content.lower()
             if op == "hit":
