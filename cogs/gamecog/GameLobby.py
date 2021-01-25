@@ -202,7 +202,8 @@ class GameLobby(RoutedReactiveMessage, HoistedReactiveMessage):
 
     async def remove(self):
         for queued in self.queued_players:
-            del self.game_cog.user_state[queued.id]
+            with suppress(KeyError):
+                del self.game_cog.user_state[queued.id]
 
         self.game_cog.lobbies.remove(self)
         await super(GameLobby, self).remove()
