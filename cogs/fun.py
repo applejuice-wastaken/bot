@@ -21,8 +21,7 @@ class Fun(commands.Cog):
 
     @commands.command(name="noping")
     async def no_ping(self, ctx, member: discord.Member):
-        embed = discord.Embed(description=member.mention)
-        m = await ctx.send(embed=embed)
+        m = await ctx.send(f"gotcha: {member.mention}", allowed_mentions=discord.AllowedMentions(users=False))
         self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: m.delete())
 
 
