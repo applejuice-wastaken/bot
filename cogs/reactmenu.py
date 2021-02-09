@@ -14,7 +14,7 @@ class ReactMenu(commands.Cog):
     async def instantiate_new(self, cls, channel, *args, **kwargs):
         new_instance = cls(self, channel, *args, **kwargs)
         self.react_menus.append(new_instance)
-        await new_instance.send_message()
+        await new_instance.send()
         return new_instance
 
     @commands.Cog.listener()

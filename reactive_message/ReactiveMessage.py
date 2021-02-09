@@ -76,60 +76,58 @@ class ReactiveMessage(ABC):
     def render_message(self) -> Dict[str, Any]:
         raise NotImplementedError
 
-    async def update_from_dict(self, d, edit=False):
-        if edit:
-            changes = process_render_changes(self.current_render, d)
-
-            if len(changes) > 0:  # if something changed
-                reactions_changed = "reactions" in changes
-                new_reactions = changes.pop("reactions", ())
-                if new_reactions is None:
-                    new_reactions = ()
-
-                if len(changes) > 0:  # not just the reactions changed
-                    await self.bound_message.edit(**changes)
-
-                if reactions_changed:  # if the reactions changed
-                    if self.ATTEMPT_REUSE_REACTIONS:
-                        await sync_reactions(self.bound_message, new_reactions)
-                    else:
-                        with suppress(discord.Forbidden):
-                            await self.bound_message.clear_reactions()
-
-                        await send_reactions(self.bound_message, new_reactions)
-
-            self.current_render = d
-        else:
-            to_delete = None
-
-            if self.bound_message is not None:
-                to_delete = self.bound_message
-
-            self.current_render = d.copy()
-            reactions = d.pop("reactions", None)
-
-            self.bound_message = await self.channel.send(**d)
-
-            if to_delete is not None:
-                await to_delete.delete()
-                # the old message is called now because of the cog possibly removing this instance from this
-
-            if reactions is not None:
-                await send_reactions(self.bound_message, reactions)
-
-    async def update(self, edit=False):
+    async def send(self):
         message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
-        await self.update_from_dict(message_kwargs, edit)
+        await self.send_from_dict(message_kwargs)
+
+    async def send_from_dict(self, d):
+        to_delete = None
+
+        if self.bound_message is not None:
+            to_delete = self.bound_message
+
+        self.current_render = d.copy()
+        reactions = d.pop("reactions", None)
+
+        self.bound_message = await self.channel.send(**d)
+
+        if to_delete is not None:
+            await to_delete.delete()
+            # the old message is called now because of the cog possibly removing this instance from this
+
+        if reactions is not None:
+            await send_reactions(self.bound_message, reactions)
 
     async def check_update(self):
         if self.requires_render:
-            await self.update(True)
+            await self.update()
 
-    async def send_message(self):
-        await self.update()
+    async def update(self):
+        message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
+        await self.update_from_dict(message_kwargs)
 
-    async def update_message(self):
-        await self.update(True)
+    async def update_from_dict(self, d):
+        changes = process_render_changes(self.current_render, d)
+
+        if len(changes) > 0:  # if something changed
+            reactions_changed = "reactions" in changes
+            new_reactions = changes.pop("reactions", ())
+            if new_reactions is None:
+                new_reactions = ()
+
+            if len(changes) > 0:  # not just the reactions changed
+                await self.bound_message.edit(**changes)
+
+            if reactions_changed:  # if the reactions changed
+                if self.ATTEMPT_REUSE_REACTIONS:
+                    await sync_reactions(self.bound_message, new_reactions)
+                else:
+                    with suppress(discord.Forbidden):
+                        await self.bound_message.clear_reactions()
+
+                    await send_reactions(self.bound_message, new_reactions)
+
+        self.current_render = d
 
     async def on_reaction_add(self, reaction, user):
         """this event is limited to the bound message"""
