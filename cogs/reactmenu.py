@@ -27,7 +27,7 @@ class ReactMenu(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         for menu in self.react_menus:
-            if menu.channel == message.channel:
+            if menu.channel == message.channel and (message.author.id != self.bot.user.id):
                 await menu.process_message(message)
 
     @commands.Cog.listener()

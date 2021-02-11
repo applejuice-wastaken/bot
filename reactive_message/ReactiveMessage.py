@@ -1,8 +1,10 @@
 import asyncio
+import sys
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from typing import Dict, Any, Optional, Iterable, List
 import discord
+
 
 def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
     ret = {}
@@ -24,6 +26,7 @@ def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
         else:
             ret[key] = val
     return ret
+
 
 async def sync_reactions(message: discord.Message, reactions: Iterable[str]):
     message = await message.channel.fetch_message(message.id)  # get updated message
@@ -51,24 +54,46 @@ async def send_reactions(message: discord.Message, reactions: Iterable[str]):
     for reaction in reactions:
         await message.add_reaction(reaction)
 
-def _check_updates(func):
-    async def wrapper(self, *args, **kwargs):
-        async with self.lock:
-            await func(self, *args, **kwargs)
-            await self.check_update()
 
-    return wrapper
+def human_join_list(input_list: list, analyse_contents=False):
+    if len(input_list) == 0:
+        return ""
+    elif len(input_list) == 1:
+        return input_list[0]
+    elif analyse_contents and " and " in input_list[-1]:
+        return ", ".join(input_list)
+    else:
+        return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
+
+
+def format_permissions(perms):
+    return f"this message requires " \
+           f"{human_join_list([perm.replace('_', ' ').replace('guild', 'server').title() for perm in perms])}" \
+           f" permission(s) in order to be rendered properly\nNormal execution should resume if permissions " \
+           f"are satisfied"
+
 
 class ReactiveMessage(ABC):
     ATTEMPT_REUSE_REACTIONS = False
+    ENFORCE_REACTION_POSITIONS = True
 
     def __init__(self, cog, channel):
         self.cog = cog
         self.channel: discord.TextChannel = channel
+
         self.bound_message: Optional[discord.Message] = None
-        self.current_render = None
+
+        self.current_displaying_render = None  # what is absolutely rendered to discord
+        self.message_render = None
+        # what should be rendered; both values can be different if permission checks fail
+        # as message render will be pointing to what should be rendered to discord if permissions
+        # were granted
+
         self.requires_render = False
+
         self.running = True
+
+        self.functional = False  # this should be false if the message cannot be rendered properly
 
         self.lock = asyncio.Lock()
 
@@ -80,13 +105,59 @@ class ReactiveMessage(ABC):
         message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
         await self.send_from_dict(message_kwargs)
 
+    # noinspection PyArgumentList
+    async def wait_permissions_fulfill(self, changes: dict, send_first_attempt=False):
+        self.functional = False
+        while True:
+            s = self.check_permissions(self.get_required_permissions(changes))
+
+            method = self._send_from_dict if send_first_attempt else self._update_from_dict
+
+            if len(s) == 0:
+                self.functional = True
+                await method(changes)
+                return
+            else:
+                await method(dict(content=format_permissions(s)))
+
+                def check_channel(channel):
+                    return channel.id == self.channel.id
+
+                def check_guild(guild):
+                    return guild.id == self.channel.guild.id
+
+                def check_user(user):
+                    return user.id == self.bot.client.id
+
+                pending_tasks = [
+                    self.bot.wait_for('guild_channel_update', check=lambda before, after: check_channel(after)),
+                    self.bot.wait_for('guild_role_update', check=lambda before, after: check_guild(after.guild)),
+                    self.bot.wait_for('member_update', check=lambda before, after: check_user(after))]
+
+                done_tasks, pending_tasks = await asyncio.wait(pending_tasks, return_when=asyncio.FIRST_COMPLETED,
+                                                               timeout=30)
+
+                for task in pending_tasks:
+                    task.cancel()
+
+                if len(done_tasks) == 0:
+                    await self.remove()
+                    return
+            send_first_attempt = False
+
     async def send_from_dict(self, d):
+        async with self.lock:
+            await self.wait_permissions_fulfill(d, True)
+
+            self.message_render = d
+
+    async def _send_from_dict(self, d: dict):
         to_delete = None
 
         if self.bound_message is not None:
             to_delete = self.bound_message
 
-        self.current_render = d.copy()
+        self.current_displaying_render = d.copy()
         reactions = d.pop("reactions", None)
 
         self.bound_message = await self.channel.send(**d)
@@ -107,7 +178,42 @@ class ReactiveMessage(ABC):
         await self.update_from_dict(message_kwargs)
 
     async def update_from_dict(self, d):
-        changes = process_render_changes(self.current_render, d)
+        async with self.lock:
+            await self.wait_permissions_fulfill(d, False)
+
+            self.message_render = d
+
+    def check_permissions(self, perms):
+        guild = self.channel.guild
+        me = guild.me if guild is not None else self.bot.user
+        permissions = self.channel.permissions_for(me)
+
+        return [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
+
+    def get_required_permissions(self, message):
+        permissions = dict()
+
+        if len(message) > 0:
+            reactions_changed = "reactions" in message
+
+            if reactions_changed:
+                permissions["add_reactions"] = True
+                if self.ENFORCE_REACTION_POSITIONS:
+                    permissions["manage_messages"] = True
+
+            if "embed" in message and message["embed"] is not None:
+                permissions["embed_links"] = True
+
+        return permissions
+
+    async def _update_from_dict(self, d: dict):
+        changes = process_render_changes(self.current_displaying_render, d)
+
+        guild = self.channel.guild
+        me = guild.me if guild is not None else self.bot.user
+        permissions = self.channel.permissions_for(me)
+
+        reaction_re_sync_required = False  # true if updating reactions wasn't totally possible
 
         if len(changes) > 0:  # if something changed
             reactions_changed = "reactions" in changes
@@ -122,12 +228,22 @@ class ReactiveMessage(ABC):
                 if self.ATTEMPT_REUSE_REACTIONS:
                     await sync_reactions(self.bound_message, new_reactions)
                 else:
-                    with suppress(discord.Forbidden):
+                    if permissions.manage_messages:
                         await self.bound_message.clear_reactions()
+                    else:
+                        reaction_re_sync_required = True
 
-                    await send_reactions(self.bound_message, new_reactions)
+                    if permissions.add_reactions:
+                        await send_reactions(self.bound_message, new_reactions)
+                    else:
+                        reaction_re_sync_required = True
 
-        self.current_render = d
+        if reaction_re_sync_required:
+            message = await self.channel.fetch_message(self.bound_message.id)
+
+            d["reactions"] = [reaction.emoji for reaction in message.reactions]
+
+        self.current_displaying_render = d
 
     async def on_reaction_add(self, reaction, user):
         """this event is limited to the bound message"""
@@ -137,13 +253,17 @@ class ReactiveMessage(ABC):
         """this event is limited to the channel"""
         pass
 
-    @_check_updates
     async def process_message(self, message):
-        await self.on_message(message)
+        if self.functional:
+            async with self.lock:
+                await self.on_message(message)
+            await self.check_update()
 
-    @_check_updates
     async def process_reaction_add(self, reaction, user):
-        await self.on_reaction_add(reaction, user)
+        if self.functional:
+            async with self.lock:
+                await self.on_reaction_add(reaction, user)
+            await self.check_update()
 
     async def remove(self):
         if self.running:
@@ -154,3 +274,7 @@ class ReactiveMessage(ABC):
             with suppress(discord.NotFound):
                 await bound.delete()
             self.cog.react_menus.remove(self)
+
+    @property
+    def bot(self):
+        return self.cog.bot

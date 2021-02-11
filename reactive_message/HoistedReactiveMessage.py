@@ -12,5 +12,5 @@ class HoistedReactiveMessage(ReactiveMessage, ABC):
     async def on_message(self, message):
         self.messages_until_resend -= 1
         if self.messages_until_resend <= 0:
-            await self.send_from_dict(self.current_render)
+            await self.send_from_dict(self.current_displaying_render)
             self.messages_until_resend = 10
