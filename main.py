@@ -3,8 +3,6 @@ import json
 import discord
 import logging
 
-from keep_alive import keep_alive
-
 from discord.ext import commands
 
 try:
@@ -67,8 +65,5 @@ class DiscordBot(commands.Bot):
 if __name__ == "__main__":
     token = get_env_value("token")
     prefix = get_env_value("prefix")
-
-    if str(get_env_value("run_keep_alive")) == "True":
-        keep_alive()
 
     DiscordBot(prefix).run(token)
