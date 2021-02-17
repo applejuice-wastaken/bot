@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Union, Tuple, Optional
+from typing import Dict, Any, Union, Tuple, Optional, Type
 
-from reactive_message.ReactiveMessage import ReactiveMessage
+from reactive_message.ReactiveMessage import ReactiveMessage, checks_updates
 from reactive_message.RenderingProperty import RenderingProperty
 
 
@@ -14,59 +14,27 @@ def chain(func):
         return self
     return wrapper
 
-class _PageLocker:
-    def __init__(self, page, reactive_message, args):
-        self.args = args
-        self.reactive_message = reactive_message
-        self.page = page
-
-    async def __aenter__(self):
-        await self.page.lock.acquire()
-        self.page.current_message = self.reactive_message
-        self.page.current_args = self.args
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.page.current_message = None
-        self.page.current_args = None
-        self.page.lock.release()
-
-class Ctx:
-    def __init__(self, page):
-        self._parent = page
-
-    def __getattr__(self, item):
-        return getattr(self._parent.current_message, item)
-
-    def __setattr__(self, key, value):
-        if key == "_parent":
-            super(Ctx, self).__setattr__(key, value)
-        else:
-            setattr(self._parent.current_message, key, value)
-
-    def __delattr__(self, item):
-        delattr(self._parent.current_message, item)
-
-    def __getitem__(self, item):
-        return self._parent.current_args[item]
-
 class Page(ABC):
-    def __init__(self):
-        self.current_message: Optional[RoutedReactiveMessage] = None
-        self.current_args: Optional[Dict[str, str]] = None
-        self.ctx = Ctx(self)
-        self.lock = asyncio.Lock()
+    def __init__(self, message, args: Dict[str, str]):
+        self.message = message
+        self.args = args
 
-    def with_context(self, obj, args):
-        return _PageLocker(self, obj, args)
+        self.lock = asyncio.Lock()
 
     @abstractmethod
     def render_message(self) -> Dict[str, Any]:
         raise NotImplementedError
 
-    async def on_reaction_add(self, reaction, user):
+    async def process_reaction_add(self, reaction, user):
         pass
 
-    async def on_message(self, message):
+    async def process_message(self, message):
+        pass
+
+    async def on_leave(self):
+        pass
+
+    async def on_enter(self):
         pass
 
 
@@ -80,20 +48,20 @@ class Route:
         self.base_page = None
 
     @chain
-    def add_route(self, route_name, route: Union[Route, Page]):
+    def add_route(self, route_name, route: Union[Route, Type[Page]]):
         self.routes[route_name] = route
 
     @chain
-    def add_fallback(self, var, route: Union[Route, Page]):
+    def add_fallback(self, var, route: Union[Route, Type[Page]]):
         self.fallback_var = var
         self.fallback = route
 
-    def add_vararg(self, var, route: Page):
+    def add_vararg(self, var, route: Type[Page]):
         self.vararg = route
         self.vararg_var = var
 
     @chain
-    def base(self, page: Page):
+    def base(self, page: Type[Page]):
         self.base_page = page
 
 
@@ -109,10 +77,15 @@ class RoutedReactiveMessage(ReactiveMessage):
             raise RuntimeError("Route is unfilled")
 
         self.route = ""
-        self._cache_page = None
-        self._cache_args = None
+        self._current_route = None
+        self._current_page = None
+        self._current_args = None
 
-    def get_page(self) -> Tuple[Page, dict]:
+    def get_page(self) -> Tuple[Type[Page], dict]:
+        if self.route == self._current_route:
+            # route did not change
+            return type(self._current_page), self._current_args
+
         particles = self.route.split(".")
         current = self.ROUTE
         args = {}
@@ -150,17 +123,40 @@ class RoutedReactiveMessage(ReactiveMessage):
 
         return current, args
 
+    async def change_page(self):
+        route_page, route_args = self.get_page()
+
+        if isinstance(self._current_page, route_page):
+            self._current_page.args = route_args
+
+        else:
+            if self._current_page is not None:
+                await self._current_page.on_leave()
+
+            self._current_page = route_page(self, route_args)
+
+            await self._current_page.on_enter()
+
+        self._current_route = self.route
+        self._current_args = route_args
+
     async def render_message(self) -> Dict[str, Any]:
-        self._cache_page, self._cache_args = self.get_page()
-        async with self._cache_page.with_context(self, self._cache_args):
-            return self._cache_page.render_message()
+        await self.change_page()
 
-    async def on_message(self, message):
-        await super(RoutedReactiveMessage, self).on_message(message)
-        async with self._cache_page.with_context(self, self._cache_args):
-            return await self._cache_page.on_message(message)
+        return self._current_page.render_message()
 
-    async def on_reaction_add(self, reaction, user):
-        await super(RoutedReactiveMessage, self).on_reaction_add(reaction, user)
-        async with self._cache_page.with_context(self, self._cache_args):
-            return await self._cache_page.on_reaction_add(reaction, user)
+    async def process_message(self, message):
+        await super(RoutedReactiveMessage, self).process_message(message)
+
+        return await self._current_page.process_message(message)
+
+    async def process_reaction_add(self, reaction, user):
+        await super(RoutedReactiveMessage, self).process_reaction_add(reaction, user)
+
+        return await self._current_page.process_reaction_add(reaction, user)
+
+    @checks_updates
+    async def on_event(self, event_name, *args, **kwargs):
+        method = f"on_{event_name}"
+        if hasattr(self._current_page, method) and callable(getattr(self._current_page, method)):
+            await getattr(self._current_page, method)(*args, **kwargs)

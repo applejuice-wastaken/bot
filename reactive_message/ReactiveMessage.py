@@ -1,9 +1,12 @@
 import asyncio
+import inspect
 import sys
 from abc import ABC, abstractmethod
 from contextlib import suppress
+from functools import wraps
 from typing import Dict, Any, Optional, Iterable, List
 import discord
+from discord.ext.commands import Bot
 
 
 def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
@@ -33,16 +36,19 @@ async def sync_reactions(message: discord.Message, reactions: Iterable[str]):
     message: discord.Message
 
     message_reactions = message.reactions
+
     message_reaction_idx = 0
 
     for new_reaction in reactions:
         if message_reaction_idx < len(message_reactions):
-            while new_reaction != message_reactions[message_reaction_idx].emoji and \
-                    message_reaction_idx < len(message_reactions):
+            while message_reaction_idx < len(message_reactions) and \
+                    new_reaction != message_reactions[message_reaction_idx].emoji:
                 await message.clear_reaction(message_reactions[message_reaction_idx])
                 message_reaction_idx += 1
 
-        await message.add_reaction(new_reaction)
+        if message_reaction_idx >= len(message_reactions) or not message_reactions[message_reaction_idx].me:
+            await message.add_reaction(new_reaction)
+
         message_reaction_idx += 1
 
     while message_reaction_idx < len(message_reactions):
@@ -73,12 +79,31 @@ def format_permissions(perms):
            f"are satisfied"
 
 
+def _strip_only_message(data):
+    ret = {}
+
+    for attr in "content", "embed":
+        if attr in data:
+            ret[attr] = data[attr]
+
+    return ret
+
+def checks_updates(func):
+    @wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        async with self.lock:
+            await func(self, *args, **kwargs)
+            await self.check_update()
+
+    return wrapper
+
+
 class ReactiveMessage(ABC):
-    ATTEMPT_REUSE_REACTIONS = False
     ENFORCE_REACTION_POSITIONS = True
 
-    def __init__(self, cog, channel):
-        self.cog = cog
+    def __init__(self, bot, channel):
+        self.bot = bot
+
         self.channel: discord.TextChannel = channel
 
         self.bound_message: Optional[discord.Message] = None
@@ -96,6 +121,13 @@ class ReactiveMessage(ABC):
         self.functional = False  # this should be false if the message cannot be rendered properly
 
         self.lock = asyncio.Lock()
+
+        self.bot.add_listener_object(self)
+
+    def __await__(self):
+        # this looks weird lol
+        yield from self.send().__await__()
+        return self
 
     @abstractmethod
     def render_message(self) -> Dict[str, Any]:
@@ -127,7 +159,7 @@ class ReactiveMessage(ABC):
                     return guild.id == self.channel.guild.id
 
                 def check_user(user):
-                    return user.id == self.bot.client.id
+                    return user.id == self.bot.user.id
 
                 pending_tasks = [
                     self.bot.wait_for('guild_channel_update', check=lambda before, after: check_channel(after)),
@@ -160,7 +192,7 @@ class ReactiveMessage(ABC):
         self.current_displaying_render = d.copy()
         reactions = d.pop("reactions", None)
 
-        self.bound_message = await self.channel.send(**d)
+        self.bound_message = await self.channel.send(**_strip_only_message(d))
 
         if to_delete is not None:
             await to_delete.delete()
@@ -170,7 +202,7 @@ class ReactiveMessage(ABC):
             await send_reactions(self.bound_message, reactions)
 
     async def check_update(self):
-        if self.requires_render:
+        if self.running and self.requires_render:
             await self.update()
 
     async def update(self):
@@ -178,10 +210,9 @@ class ReactiveMessage(ABC):
         await self.update_from_dict(message_kwargs)
 
     async def update_from_dict(self, d):
-        async with self.lock:
-            await self.wait_permissions_fulfill(d, False)
+        await self.wait_permissions_fulfill(d, False)
 
-            self.message_render = d
+        self.message_render = d
 
     def check_permissions(self, perms):
         guild = self.channel.guild
@@ -222,21 +253,30 @@ class ReactiveMessage(ABC):
                 new_reactions = ()
 
             if len(changes) > 0:  # not just the reactions changed
-                await self.bound_message.edit(**changes)
+                await self.bound_message.edit(**_strip_only_message(changes))
 
             if reactions_changed:  # if the reactions changed
-                if self.ATTEMPT_REUSE_REACTIONS:
-                    await sync_reactions(self.bound_message, new_reactions)
-                else:
-                    if permissions.manage_messages:
-                        await self.bound_message.clear_reactions()
-                    else:
-                        reaction_re_sync_required = True
+                reaction_group_changed = "reaction_group" in changes
 
-                    if permissions.add_reactions:
-                        await send_reactions(self.bound_message, new_reactions)
+                try:
+                    if not reaction_group_changed:
+                        if permissions.manage_messages and permissions.add_reactions:
+                            await sync_reactions(self.bound_message, new_reactions)
+                        else:
+                            reaction_re_sync_required = True
                     else:
-                        reaction_re_sync_required = True
+                        if permissions.manage_messages:
+                            await self.bound_message.clear_reactions()
+                        else:
+                            reaction_re_sync_required = True
+
+                        if permissions.add_reactions:
+                            await send_reactions(self.bound_message, new_reactions)
+                        else:
+                            reaction_re_sync_required = True
+
+                except discord.Forbidden:
+                    reaction_re_sync_required = True
 
         if reaction_re_sync_required:
             message = await self.channel.fetch_message(self.bound_message.id)
@@ -245,36 +285,33 @@ class ReactiveMessage(ABC):
 
         self.current_displaying_render = d
 
-    async def on_reaction_add(self, reaction, user):
+    async def process_reaction_add(self, reaction, user):
         """this event is limited to the bound message"""
         pass
 
-    async def on_message(self, message):
+    async def process_message(self, message):
         """this event is limited to the channel"""
         pass
 
-    async def process_message(self, message):
-        if self.functional:
-            async with self.lock:
-                await self.on_message(message)
-            await self.check_update()
+    @checks_updates
+    async def on_message(self, message):
+        if self.functional and message.channel.id == self.channel.id and self.bot.user.id != message.author.id:
+            await self.process_message(message)
 
-    async def process_reaction_add(self, reaction, user):
-        if self.functional:
-            async with self.lock:
-                await self.on_reaction_add(reaction, user)
-            await self.check_update()
+    @checks_updates
+    async def on_reaction_add(self, reaction, user):
+        if self.bound_message is None:
+            return
+
+        if self.functional and self.bound_message.id == reaction.message.id and self.bot.user.id != user.id:
+            await self.process_reaction_add(reaction, user)
 
     async def remove(self):
         if self.running:
-            print("removing")
+            self.bot.remove_listener_object(self)
+
             self.running = False
             bound = self.bound_message
             self.bound_message = None
             with suppress(discord.NotFound):
                 await bound.delete()
-            self.cog.react_menus.remove(self)
-
-    @property
-    def bot(self):
-        return self.cog.bot

@@ -1,7 +1,10 @@
+import inspect
 import os
 import json
+
+from functools import wraps
+
 import discord
-import logging
 
 from discord.ext import commands
 
@@ -17,6 +20,21 @@ def get_env_value(value: str):
     if ret is None:
         ret = t[value]
     return ret
+
+
+def _listener_bind(method, self, obj):
+    for attr, func in inspect.getmembers(obj, inspect.ismethod):
+        if attr.startswith("on_"):
+            getattr(self, method)(func, attr)
+
+def _true_partial(func, *args, **kwargs):
+    # this exists because functool's partial returns a class instead of a function
+    # and we still want _listener_bind to receive 'self'
+
+    @wraps(func)
+    def wrapper(*g_args, **g_kwargs):
+        return func(*args, *g_args, **kwargs, **g_kwargs)
+    return wrapper
 
 
 class DiscordBot(commands.Bot):
@@ -61,9 +79,15 @@ class DiscordBot(commands.Bot):
             except discord.Forbidden:
                 return None
 
+    add_listener_object = _true_partial(_listener_bind, "add_listener")
+    remove_listener_object = _true_partial(_listener_bind, "remove_listener")
+
 
 if __name__ == "__main__":
     token = get_env_value("token")
     prefix = get_env_value("prefix")
 
-    DiscordBot(prefix).run(token)
+    intents = discord.Intents.default()
+    intents.dm_reactions = True
+
+    DiscordBot(prefix, intents=intents).run(token)

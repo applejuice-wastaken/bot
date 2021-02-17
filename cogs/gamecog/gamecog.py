@@ -1,6 +1,7 @@
 from typing import List
 
 import discord
+from discord import RawReactionActionEvent, Reaction
 from discord.ext import commands
 
 from cogs.gamecog.GameLobby import GameLobby
@@ -32,8 +33,7 @@ class GameCog(commands.Cog):
             await ctx.send("This game does not exist")
             return
 
-        self.lobbies.append(await self.bot.get_cog("ReactMenu")
-                            .instantiate_new(GameLobby, ctx.channel, games[game_name], ctx.author, self))
+        self.lobbies.append(await GameLobby(self.bot, ctx.channel, games[game_name], ctx.author, self))
 
     @commands.dm_only()
     @commands.command()
@@ -98,8 +98,8 @@ class GameCog(commands.Cog):
                     return
 
     @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        if user.id == self.bot.user.id:
+    async def on_raw_reaction_add(self, ev: RawReactionActionEvent):
+        if ev.user_id == self.bot.user.id:
             return
 
         for instance in self.game_instances:
@@ -107,7 +107,13 @@ class GameCog(commands.Cog):
                 player: GamePlayer
 
                 # check if the reaction is pertinent for this instance
-                if reaction.message.channel.id == player.bound_channel.id and \
-                        user.id == player.id:
-                    await instance.call_wrap(instance.on_reaction_add(reaction, player))
+                if ev.channel_id == player.bound_channel.id and ev.user_id == player.id:
+                    data = dict(message_id=ev.user_id, channel_id=ev.channel_id,
+                                user_id=ev.user_id, guild_id=ev.guild_id)
+
+                    message = discord.utils.find(lambda m: m.id == ev.message_id, reversed(self.bot.cached_messages))
+
+                    await instance.call_wrap(instance.on_reaction_add(Reaction(message=message,
+                                                                               data=data,
+                                                                               emoji=ev.emoji), player))
                     return

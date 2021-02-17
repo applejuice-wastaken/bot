@@ -74,39 +74,39 @@ class RoutePage(Page):
 
         return dict(content="Route page", embed=embed)
 
-    async def on_message(self, message):
+    async def process_message(self, message):
         if len(message.content) == 1:
-            self.ctx.route = message.content
+            self.message.route = message.content
 
 
 class SubPage(Page, ABC):
-    async def on_message(self, message):
+    async def process_message(self, message):
         if message.content == "back":
-            self.ctx.route = ""
+            self.message.route = ""
 
 
 class APage(SubPage):
     def render_message(self) -> Dict[str, Any]:
         return dict(content="Page A! (type back to go back to root)",
-                    reactions=(self.ctx.ONE, self.ctx.TWO, self.ctx.FIVE))
+                    reactions=(self.message.ONE, self.message.TWO, self.message.FIVE))
 
 
 class BPage(SubPage):
     def render_message(self) -> Dict[str, Any]:
         return dict(content="Woah page B! (type back to go back to root or something else idk)",
-                    reactions=(self.ctx.ONE, self.ctx.TWO, self.ctx.FIVE))
+                    reactions=(self.message.ONE, self.message.TWO, self.message.FIVE))
 
-    async def on_message(self, message):
-        await super(BPage, self).on_message(message)
+    async def process_message(self, message):
+        await super(BPage, self).process_message(message)
         if message.content != "back":
-            self.ctx.route = f"b.{message.content[:10]}"
+            self.message.route = f"b.{message.content[:10]}"
 
 
 class RestPage(SubPage):
     def render_message(self) -> Dict[str, Any]:
-        return dict(content=f"Page named {self.ctx['n']}\n"
-                            f"(route: {self.ctx.route})",
-                    reactions=(self.ctx.ONE, self.ctx.FIVE, self.ctx.TWO))
+        return dict(content=f"Page named {self.message['n']}\n"
+                            f"(route: {self.message.route})",
+                    reactions=(self.message.ONE, self.message.FIVE, self.message.TWO))
 
 
 class TestRouteReactiveMessage(RoutedReactiveMessage):
@@ -116,12 +116,12 @@ class TestRouteReactiveMessage(RoutedReactiveMessage):
     FOUR = "\u0034\ufe0f\u20e3"
     FIVE = "\u0035\ufe0f\u20e3"
     ROUTE = (Route()
-             .add_route("a", APage())
+             .add_route("a", APage)
              .add_route("b", Route()
-                        .add_fallback("n", RestPage())
-                        .base(BPage()))
-             .add_fallback("n", RestPage())
-             .base(RoutePage()))
+                        .add_fallback("n", RestPage)
+                        .base(BPage))
+             .add_fallback("n", RestPage)
+             .base(RoutePage))
 
 
 class FeatureTester(commands.Cog):
