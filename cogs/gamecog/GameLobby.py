@@ -133,13 +133,10 @@ class PreparePage(Page):
 
         players_waiting = [i[1] for i in self.waiting_confirm]
 
-        if len(self.message.game_settings_proto) > 0:
-            body = "\n".join(f"{self.UNCONFIRMED if player in players_waiting else self.CONFIRM} {player.mention}"
+        body = "\n".join(f"{self.UNCONFIRMED if player in players_waiting else self.CONFIRM} {player.mention}"
                              for player in self.message.queued_players)
-        else:
-            body = "<empty (I don't even know how you got here)>"
 
-        embed.add_field(name="Settings", value=body)
+        embed.add_field(name="Waiting for confirmation", value=body)
 
         return dict(embed=embed, reactions=(self.BACK_TO_MAIN,),
                     reaction_group="pp")
