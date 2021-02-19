@@ -1,6 +1,7 @@
-from discord.ext import commands
 import base64
 import json
+
+from discord.ext import commands
 from google.cloud import firestore
 from google.oauth2 import service_account
 
@@ -37,6 +38,7 @@ class Firestore(commands.Cog):
                     snapshot = await current.get()
 
         return snapshot.to_dict(), original
+
 
 def setup(bot):
     bot.add_cog(Firestore(bot))

@@ -1,11 +1,9 @@
 import inspect
-import os
 import json
-
+import os
 from functools import wraps
 
 import discord
-
 from discord.ext import commands
 
 try:
@@ -27,6 +25,7 @@ def _listener_bind(method, self, obj):
         if attr.startswith("on_"):
             getattr(self, method)(func, attr)
 
+
 def _true_partial(func, *args, **kwargs):
     # this exists because functool's partial returns a class instead of a function
     # and we still want _listener_bind to receive 'self'
@@ -34,6 +33,7 @@ def _true_partial(func, *args, **kwargs):
     @wraps(func)
     def wrapper(*g_args, **g_kwargs):
         return func(*args, *g_args, **kwargs, **g_kwargs)
+
     return wrapper
 
 

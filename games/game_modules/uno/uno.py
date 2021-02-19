@@ -4,16 +4,16 @@ from typing import Dict, List, Callable, Collection
 import discord
 
 from games.GamePlayer import GamePlayer
-from games.GameHasTimeout import GameWithTimeout
-from games.round.RoundAction import RoundAction, Verb, Literal, Category
-from games.round.RoundGame import RoundGame
 from games.game_modules.uno import registry
 from games.game_modules.uno.registry import CardInstance
+from games.round.RoundAction import RoundAction, Verb, Literal, Category
+from games.round.RoundGame import RoundGame
 
 
 class State(Enum):
     CARD_PICK = 0
     FILL_ATTRIBUTES = 1
+
 
 class UnoGamePlayer(GamePlayer):
     def __init__(self, user, bound_channel):
@@ -50,6 +50,7 @@ class UnoGamePlayer(GamePlayer):
             self.hand.extend(ret[:-1])
 
         return ret
+
 
 class UnoGame(RoundGame):
     game_name = "uno"
@@ -197,13 +198,14 @@ class UnoGame(RoundGame):
         self.add_round_action(PlayCardAction(self.current_player, self.selected_card))
         await self.end_round()
 
+
 class GetCardAction(RoundAction):
     def __init__(self, player, number):
         super().__init__(player)
         self.number = number
 
     def represent(self, is_first_person) -> Collection[Category]:
-        return Verb(f"get{'' if is_first_person else 's'} {str(self.number)}"),\
+        return Verb(f"get{'' if is_first_person else 's'} {str(self.number)}"), \
                Literal(f"card{'' if self.number == 1 else 's'}")
 
 
@@ -213,8 +215,9 @@ class PickCardAction(RoundAction):
         self.card = card
 
     def represent(self, is_first_person) -> Collection[Category]:
-        return Verb(f"select{'' if is_first_person else 's'}"),\
+        return Verb(f"select{'' if is_first_person else 's'}"), \
                Literal(self.card.get_user_friendly())
+
 
 class PlayCardAction(RoundAction):
     def __init__(self, player, card):
@@ -222,8 +225,9 @@ class PlayCardAction(RoundAction):
         self.card = card
 
     def represent(self, is_first_person) -> Collection[Category]:
-        return Verb(f"play{'' if is_first_person else 's'}"),\
+        return Verb(f"play{'' if is_first_person else 's'}"), \
                Literal(self.card.get_user_friendly())
+
 
 class DeckRegen(RoundAction):
     def __init__(self):

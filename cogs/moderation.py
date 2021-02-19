@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import time
 
 import discord
 from discord.ext import commands
@@ -56,6 +55,7 @@ class Moderation(commands.Cog):
         messages = await ctx.channel.history(limit=quantity).flatten()
 
         await self.purge_action(ctx, messages)
+
 
 def setup(bot):
     bot.add_cog(Moderation(bot))

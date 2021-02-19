@@ -31,5 +31,6 @@ class UnloadEntry(namedtuple("UnloadEntry", "message action")):
     def __getattr__(self, item):
         return getattr(self.actions, item)
 
+
 def setup(bot):
     bot.add_cog(Uninvoke(bot))

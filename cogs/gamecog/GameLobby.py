@@ -1,7 +1,8 @@
 import asyncio
+import base64
 from contextlib import suppress
 from typing import Type, Dict, Any, Tuple
-import base64
+
 import discord
 
 from games.Game import Game

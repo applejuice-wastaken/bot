@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import Collection
 
+
 class Category:
     def __init__(self, content):
         self.content = content
 
+
 class Verb(Category):
     pass
+
 
 class Literal(Category):
     pass

@@ -1,8 +1,7 @@
+import inspect
 import sys
 import traceback
-import types
-import discord
-import inspect
+
 from discord.ext import commands
 
 
@@ -16,12 +15,14 @@ def _output_dir(indent, d: dict):
             print("\t" * indent + '...', file=sys.stderr)
             return
 
+
 def _output_list(indent, lst: list):
     for idx, value in enumerate(lst):
         output_variable(indent, idx, value)
         if idx > 10:
             print("\t" * indent + '...', file=sys.stderr)
             return
+
 
 def output_variable(indent, name, value):
     if type(value) in custom_output:
@@ -47,6 +48,7 @@ custom_output = {
     dict: _output_dir,
     list: _output_list
 }
+
 
 class CommandError(commands.Cog):
     def __init__(self, bot):

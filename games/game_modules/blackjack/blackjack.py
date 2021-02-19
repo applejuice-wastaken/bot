@@ -3,9 +3,9 @@ from collections import namedtuple
 import discord
 
 from games.Game import EndGame, LeaveReason
+from games.GameHasTimeout import GameWithTimeout
 from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
-from games.GameHasTimeout import GameWithTimeout
 from games.game_modules.blackjack.cards import generate_deck, CardNumber
 
 
@@ -18,8 +18,10 @@ class BlackJackGamePlayer(GamePlayer):
 
 BlackJackPair = namedtuple("BlackJackPair", "hand score owner")
 
+
 def better_emojis(s):
     return str(s).replace("♠", "<:betterspades:801468794320453732>").replace("♣", "<:betterclubs:801468950101229650>")
+
 
 def build_hand(hand):
     return better_emojis("\t".join(str(i) for i in hand))

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Union, Tuple, Optional, Type
+from typing import Dict, Any, Union, Tuple, Type
 
 from reactive_message.ReactiveMessage import ReactiveMessage, checks_updates
 from reactive_message.RenderingProperty import RenderingProperty
@@ -12,7 +12,9 @@ def chain(func):
     def wrapper(self, *args, **kwargs):
         func(self, *args, **kwargs)
         return self
+
     return wrapper
+
 
 class Page(ABC):
     def __init__(self, message, args: Dict[str, str]):

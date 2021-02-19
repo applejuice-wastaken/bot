@@ -1,11 +1,13 @@
 import base64
 import math
+import random
+
 import aiohttp
 import discord
-import random
-from games.Game import Game, EndGame
-from games.GamePlayer import GamePlayer
+
+from games.Game import EndGame
 from games.GameHasTimeout import GameWithTimeout
+from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
 
 

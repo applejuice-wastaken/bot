@@ -1,9 +1,10 @@
-import discord
 from discord.abc import Messageable
+
 
 class Absorber:
     async def add_reaction(self, *_, **__):
         pass
+
 
 class GamePlayer(Messageable):
     async def _get_channel(self):

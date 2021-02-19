@@ -3,6 +3,7 @@ from typing import TypeVar, Generic, Iterable
 
 T = TypeVar('T')
 
+
 class MulticastIntent(Generic[T]):
     def __init__(self, targets: Iterable[T]):
         self.targets = list(targets)
@@ -30,5 +31,7 @@ class MulticastIntent(Generic[T]):
             async def _():
                 for r in coroutines:
                     await r
+
             return _()
+
         return _

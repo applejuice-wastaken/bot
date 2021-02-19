@@ -1,8 +1,7 @@
-import asyncio
+from abc import abstractmethod
 from abc import abstractmethod
 from enum import Enum
-from functools import partial
-from typing import List, Collection, Sequence
+from typing import List, Sequence
 
 from games.Game import EndGame, LeaveReason
 from games.GameHasTimeout import GameWithTimeout
@@ -18,6 +17,7 @@ def human_join_list(input_list: list, analyse_contents=False):
         return ", ".join(input_list)
     else:
         return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
+
 
 def action_join(actions: Sequence[Sequence[Category]]):
     groupings = []
@@ -46,6 +46,7 @@ def action_join(actions: Sequence[Sequence[Category]]):
         ret.append(equal_action_join(group))
 
     return human_join_list(ret, True)
+
 
 def equal_action_join(actions: Sequence[Sequence[Category]]):
     def default():
@@ -91,6 +92,7 @@ def equal_action_join(actions: Sequence[Sequence[Category]]):
         ret.append(final)
 
     return " ".join(ret)
+
 
 class RoundGame(GameWithTimeout):
     def __init__(self, cog, channel, players, settings):

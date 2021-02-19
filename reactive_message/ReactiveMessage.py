@@ -1,12 +1,10 @@
 import asyncio
-import inspect
-import sys
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from functools import wraps
-from typing import Dict, Any, Optional, Iterable, List
+from typing import Dict, Any, Optional, Iterable
+
 import discord
-from discord.ext.commands import Bot
 
 
 def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
@@ -87,6 +85,7 @@ def _strip_only_message(data):
             ret[attr] = data[attr]
 
     return ret
+
 
 def checks_updates(func):
     @wraps(func)

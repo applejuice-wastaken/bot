@@ -1,8 +1,8 @@
-import asyncio
 import random
 from enum import Enum
 
 import discord
+
 from games.round.RoundGame import Direction
 
 

@@ -1,7 +1,9 @@
+import json
+
+import aiohttp
 import discord
 from discord.ext import commands
-import aiohttp
-import json
+
 from util.requires_cog import requires_cog
 
 

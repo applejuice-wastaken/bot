@@ -1,11 +1,13 @@
-import asyncio
 import abc
+import asyncio
 from contextlib import suppress
 from enum import Enum
 from functools import partial
 from typing import List, TypeVar, Dict, Union
+
 import discord
 from discord import TextChannel
+
 from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
 from games.MulticastIntent import MulticastIntent
@@ -17,12 +19,14 @@ class EndGame(Enum):
     INSUFFICIENT_PLAYERS = 2
     ERROR = 3
 
+
 class LeaveReason(Enum):
     CHANNEL_BLOCKED = 0
     BY_COMMAND = 1
 
 
 T = TypeVar("T")
+
 
 class Game(abc.ABC, MulticastIntent):
     game_name = "game"
@@ -90,7 +94,7 @@ class Game(abc.ABC, MulticastIntent):
     @classmethod
     def is_playable(cls, size):
         return size > 1
-    
+
     def is_still_playable(self):
         return self.is_playable(len(self.players))
 
