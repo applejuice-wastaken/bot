@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from typing import List
 
 import discord
@@ -77,7 +79,11 @@ class GameCog(commands.Cog):
             player.game_instance = instance
 
         # deletes the lobby
-        await lobby.delete()
+        lobby.route = "started"
+
+        await lobby.check_update()
+
+        await lobby.remove()
 
         for player in players:
             self.user_state[player.id] = instance

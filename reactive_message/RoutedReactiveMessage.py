@@ -33,10 +33,10 @@ class Page(ABC):
     async def process_message(self, message):
         pass
 
-    async def on_leave(self):
+    async def on_leave(self, to_page):
         pass
 
-    async def on_enter(self):
+    async def on_enter(self, from_page):
         pass
 
 
@@ -133,11 +133,13 @@ class RoutedReactiveMessage(ReactiveMessage):
 
         else:
             if self._current_page is not None:
-                await self._current_page.on_leave()
+                await self._current_page.on_leave(route_page)
+
+            from_page = type(self._current_page)
 
             self._current_page = route_page(self, route_args)
 
-            await self._current_page.on_enter()
+            await self._current_page.on_enter(from_page)
 
         self._current_route = self.route
         self._current_args = route_args

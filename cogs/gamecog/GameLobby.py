@@ -116,7 +116,7 @@ class PreparePage(Page):
         self.confirmed_messages = []
         self.waiting_resend = []
 
-    async def on_enter(self):
+    async def on_enter(self, from_page):
         for player in self.message.queued_players:
             await self.send_confirmation(player)
 
@@ -130,15 +130,15 @@ class PreparePage(Page):
         else:
             await message.add_reaction(self.CONFIRM)
 
-    async def on_leave(self):
-        print("removing")
-        for message, _ in self.waiting_confirm:
-            await message.edit(content="Start was cancelled")
-            await message.delete(delay=30)
+    async def on_leave(self, to_page):
+        if to_page is MainPage:
+            for message, _ in self.waiting_confirm:
+                await message.edit(content="Start was cancelled")
+                await message.delete(delay=30)
 
-        for message in self.confirmed_messages:
-            await message.edit(content="Start was cancelled")
-            await message.delete(delay=30)
+            for message in self.confirmed_messages:
+                await message.edit(content="Start was cancelled")
+                await message.delete(delay=30)
 
     def render_message(self) -> Dict[str, Any]:
         embed = discord.Embed(title=f"{self.message.game_class.game_name} game",
@@ -283,11 +283,17 @@ class SettingsPage(Page):
 
         self.message.requires_render = True
 
+class StartedPage(Page):
+    def render_message(self) -> Dict[str, Any]:
+        embed = discord.Embed(title="Game has begun", color=0x333333)
+
+        return dict(embed=embed, reaction_group="stp")
 
 class GameLobby(RoutedReactiveMessage, HoistedReactiveMessage):
     ROUTE = (Route()
              .add_route("settings", SettingsPage)
              .add_route("prepare", PreparePage)
+    .add_route("started", StartedPage)
              .base(MainPage))
 
     editing_which = RenderingProperty("editing_which")
