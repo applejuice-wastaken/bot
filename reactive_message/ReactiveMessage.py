@@ -172,7 +172,7 @@ class ReactiveMessage(ABC):
                     task.cancel()
 
                 if len(done_tasks) == 0:
-                    await self.remove()
+                    await self.delete()
                     return
             send_first_attempt = False
 
@@ -310,7 +310,12 @@ class ReactiveMessage(ABC):
             self.bot.remove_listener_object(self)
 
             self.running = False
+
+    async def delete(self):
+        if self.running:
+            await self.remove()
             bound = self.bound_message
             self.bound_message = None
-            with suppress(discord.NotFound):
-                await bound.delete()
+            if bound is not None:
+                with suppress(discord.NotFound):
+                    await bound.delete()

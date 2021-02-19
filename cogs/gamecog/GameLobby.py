@@ -67,7 +67,7 @@ class MainPage(Page):
 
         elif reaction.emoji == self.CANCEL_LOBBY:
             if user.id == self.message.owner.id:
-                await self.message.remove()
+                await self.message.delete()
 
         elif reaction.emoji == self.SETTINGS_PAGE:
             if len(self.message.game_settings_proto) > 0 and user.id == self.message.owner.id:

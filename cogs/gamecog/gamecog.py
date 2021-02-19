@@ -77,7 +77,7 @@ class GameCog(commands.Cog):
             player.game_instance = instance
 
         # deletes the lobby
-        await lobby.remove()
+        await lobby.delete()
 
         for player in players:
             self.user_state[player.id] = instance
