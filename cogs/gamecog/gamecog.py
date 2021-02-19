@@ -27,8 +27,13 @@ class GameCog(commands.Cog):
 
     @commands.guild_only()
     @game.command()
-    async def new(self, ctx, game_name):
+    async def new(self, ctx, game_name=None):
         """creates a lobby"""
+        if game_name is None:
+            embed = discord.Embed(title="Games", description="\n".join(games.keys()))
+            await ctx.send(embed=embed)
+            return
+
         if game_name not in games:
             await ctx.send("This game does not exist")
             return
