@@ -96,34 +96,46 @@ async def request(bot, reactive_message, text, value_type, check):
     if val is not None:
         return convert(val, value_type)
 
+
 def _test(e):
     print(" ".join(hex(ord(letter)) for letter in e))
+
 
 class PreparePage(Page):
     BACK_TO_MAIN = "\u25c0\ufe0f"
     CONFIRM = "\u2705"
     UNCONFIRMED = "\u274c"
+    RESEND = "\U0001f501"
 
     def __init__(self, message, args: Dict[str, str]):
         message: GameLobby
         super().__init__(message, args)
 
         self.waiting_confirm = []
+        self.confirmed_messages = []
+        self.waiting_resend = []
 
     async def on_enter(self):
         for player in self.message.queued_players:
-            try:
-                message = await player.send("Waiting confirmation")
+            await self.send_confirmation(player)
 
-                self.waiting_confirm.append((message, player))
-            except discord.Forbidden:
-                pass
-            else:
-                await message.add_reaction(self.CONFIRM)
+    async def send_confirmation(self, player):
+        try:
+            message = await player.send("Waiting confirmation")
+
+            self.waiting_confirm.append((message, player))
+        except discord.Forbidden:
+            self.waiting_resend.append(player)
+        else:
+            await message.add_reaction(self.CONFIRM)
 
     async def on_leave(self):
         print("removing")
         for message, _ in self.waiting_confirm:
+            await message.edit(content="Start was cancelled")
+            await message.delete(delay=30)
+
+        for message in self.confirmed_messages:
             await message.edit(content="Start was cancelled")
             await message.delete(delay=30)
 
@@ -133,13 +145,28 @@ class PreparePage(Page):
 
         players_waiting = [i[1] for i in self.waiting_confirm]
 
-        body = "\n".join(f"{self.UNCONFIRMED if player in players_waiting else self.CONFIRM} {player.mention}"
-                             for player in self.message.queued_players)
+        lines = []
+        for player in self.message.queued_players:
+            if player in players_waiting:
+                emoji = self.UNCONFIRMED
+            elif player in self.waiting_resend:
+                emoji = self.RESEND
+            else:
+                emoji = self.CONFIRM
+
+            lines.append(f"{emoji} {player.mention}")
+
+        body = "\n".join(lines)
 
         embed.add_field(name="Waiting for confirmation", value=body)
 
-        return dict(embed=embed, reactions=(self.BACK_TO_MAIN,),
-                    reaction_group="pp")
+        if len(self.waiting_resend) > 0:
+            embed.set_footer(text="Enable your DMs (and keep them open) and then react this message")
+            reactions = (self.BACK_TO_MAIN, self.RESEND)
+        else:
+            reactions = (self.BACK_TO_MAIN,)
+
+        return dict(embed=embed, reactions=reactions, reaction_group="pp")
 
     async def process_reaction_add(self, reaction, user):
         reactive_message: GameLobby
@@ -147,11 +174,18 @@ class PreparePage(Page):
             if user.id == self.message.owner.id:
                 self.message.route = ""
 
+        elif reaction.emoji == self.RESEND:
+            if user in self.waiting_resend:
+                self.waiting_resend.remove(user)
+                await self.send_confirmation(user)
+                self.message.requires_render = True
+
     async def on_raw_reaction_add(self, ev):
         for idx, (message, player) in enumerate(self.waiting_confirm):
             if ev.message_id == message.id and ev.emoji.name == self.CONFIRM and ev.user_id == player.id:
                 self.waiting_confirm.pop(idx)
-                if len(self.waiting_confirm) == 0:
+                self.confirmed_messages.append(message)
+                if len(self.waiting_confirm) == 0 and len(self.waiting_resend) == 0:
                     await self.message.game_cog.begin_game_for_lobby(self.message)
                     return
                 self.message.requires_render = True
@@ -252,7 +286,7 @@ class SettingsPage(Page):
 class GameLobby(RoutedReactiveMessage, HoistedReactiveMessage):
     ROUTE = (Route()
              .add_route("settings", SettingsPage)
-    .add_route("prepare", PreparePage)
+             .add_route("prepare", PreparePage)
              .base(MainPage))
 
     editing_which = RenderingProperty("editing_which")
