@@ -177,10 +177,9 @@ class ReactiveMessage(ABC):
             send_first_attempt = False
 
     async def send_from_dict(self, d):
-        async with self.lock:
-            await self.wait_permissions_fulfill(d, True)
+        await self.wait_permissions_fulfill(d, True)
 
-            self.message_render = d
+        self.message_render = d
 
     async def _send_from_dict(self, d: dict):
         to_delete = None
