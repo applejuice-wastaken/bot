@@ -124,7 +124,16 @@ class GameCog(commands.Cog):
 
                     message = discord.utils.find(lambda m: m.id == ev.message_id, reversed(self.bot.cached_messages))
 
+                    emoji_id = ev.emoji.id
+                    if not emoji_id:
+                        emoji = ev.emoji.name
+                    else:
+                        try:
+                            emoji = self.bot.get_emoji(emoji_id)
+                        except KeyError:
+                            emoji = ev.emoji
+
                     await instance.call_wrap(instance.on_reaction_add(Reaction(message=message,
                                                                                data=data,
-                                                                               emoji=ev.emoji), player))
+                                                                               emoji=emoji), player))
                     return
