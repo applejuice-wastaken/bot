@@ -231,6 +231,9 @@ class BlackJackGame(GameWithTimeout):
             return self.hitting[self.hitting_player_idx]
 
     async def timeout(self):
+        if self.hitting_player is None:
+            return
+
         await self.decision_stay()
 
     async def player_leave(self, player, reason=LeaveReason.BY_COMMAND):
