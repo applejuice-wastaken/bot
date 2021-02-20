@@ -26,3 +26,7 @@ class GamePlayer(Messageable):
 
     def __getattr__(self, item):
         return getattr(self.user, item)
+
+    @property
+    def mention(self):
+        return f"{self.user.mention} ({self.user.name})"
