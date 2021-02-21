@@ -304,6 +304,20 @@ class ReactiveMessage(ABC):
         if self.functional and self.bound_message.id == reaction.message.id and self.bot.user.id != user.id:
             await self.process_reaction_add(reaction, user)
 
+    async def on_message_delete(self, message):
+        if self.bound_message is None:
+            return
+
+        if message.id == self.bound_message.id:
+            await self.remove()
+
+    async def on_bulk_message_delete(self, messages):
+        if self.bound_message is None:
+            return
+
+        if self.bound_message in messages:
+            await self.remove()
+
     async def remove(self):
         if self.running:
             self.bot.remove_listener_object(self)
