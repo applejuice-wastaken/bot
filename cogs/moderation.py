@@ -20,18 +20,18 @@ class Moderation(commands.Cog):
                 await ctx.message.delete(delay=10)
                 break
         else:
-            def check(r, u):
-                return u.id == ctx.author.id
+            def check(ev):
+                return ev.user_id == ctx.author.id
 
             message = await ctx.send(f"This will delete {len(messages)} messages, are you sure?")
             try:
-                reaction, user = await self.bot.choice(message, "✅", "❌", check=check)
+                emoji = await self.bot.choice(message, "✅", "❌", check=check)
             except asyncio.TimeoutError:
                 await ctx.send("Timeout", delete_after=10)
                 await ctx.message.delete(delay=5)
                 await message.delete(delay=5)
             else:
-                if reaction.emoji == "✅":
+                if emoji.name == "✅":
                     await ctx.channel.delete_messages(messages)
                 else:
                     await ctx.message.delete()

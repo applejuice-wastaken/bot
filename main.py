@@ -4,7 +4,9 @@ import os
 from functools import wraps
 
 import discord
+from discord import PartialEmoji
 from discord.ext import commands
+from discord.message import convert_emoji_reaction
 
 try:
     with open("config.json") as f:
@@ -59,15 +61,19 @@ class DiscordBot(commands.Bot):
         super().dispatch("event", event_name, *args, **kwargs)
         super().dispatch(event_name, *args, **kwargs)
 
-    async def choice(self, message, *reactions, check=lambda r, u: True):
+    async def choice(self, message, *reactions, check=lambda ev: True) -> PartialEmoji:
         for reaction in reactions:
             await message.add_reaction(reaction)
 
-        def c(r, u):
-            if r.message.id == message.id and self.user.id != u.id:
-                return check(r, u)
+        def c(ev):
+            p: PartialEmoji = ev.emoji
+            if not any(convert_emoji_reaction(p) == convert_emoji_reaction(r) for r in reactions):
+                return False
 
-        return await self.wait_for("reaction_add", check=c, timeout=40)
+            if ev.message_id == message.id and self.user.id != ev.user_id:
+                return check(ev)
+
+        return (await self.wait_for("raw_reaction_add", check=c, timeout=40)).emoji
 
     async def get_webhook_for_channel(self, channel):
         for wb in await channel.webhooks():

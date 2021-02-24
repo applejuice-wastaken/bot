@@ -16,9 +16,9 @@ class Anonymity(commands.Cog):
             initial_embed = discord.Embed(title="Select method",
                                           description="✏: Customized name\n🤖: Automatically generated name")
             message = await recipient.send(embed=initial_embed)
-            reaction, user = await self.bot.choice(message, "✏", "🤖")
+            emoji = await self.bot.choice(message, "✏", "🤖")
 
-            if reaction.emoji == "✏":
+            if emoji.name == "✏":
                 message = await recipient.send("Send your fake name...")
 
                 def check(m):
@@ -33,9 +33,9 @@ class Anonymity(commands.Cog):
                                           description="Keep?")
             message = await recipient.send(embed=initial_embed)
 
-            reaction, user = await self.bot.choice(message, "✅", "❌")
+            emoji = await self.bot.choice(message, "✅", "❌")
 
-            if reaction.emoji == "✅":
+            if emoji.name == "✅":
                 return selected_name
 
     @requires_cog("Firestore")
