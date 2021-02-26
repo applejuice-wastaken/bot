@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 from typing import TypeVar, Generic, Iterable
 
 T = TypeVar('T')
@@ -6,7 +7,7 @@ T = TypeVar('T')
 
 class MulticastIntent(Generic[T]):
     def __init__(self, targets: Iterable[T]):
-        self.targets = list(targets)
+        self.targets = targets
 
     def to(self, targets: Iterable[T]):
         return MulticastIntent(targets)
@@ -18,12 +19,14 @@ class MulticastIntent(Generic[T]):
         return MulticastIntent(t for t in (*self.targets, target))
 
     def __getattr__(self, item):
-        for target in self.targets:
+        targets = list(self.targets)
+
+        for target in targets:
             getattr(target, item)
 
         def _(*args, **kwargs):
             coroutines = []
-            for target in self.targets:
+            for target in targets:
                 ret = getattr(target, item)(*args, **kwargs)
                 if asyncio.iscoroutine(ret):
                     coroutines.append(ret)
