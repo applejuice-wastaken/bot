@@ -257,7 +257,7 @@ class ReactiveMessage(ABC):
                 reaction_group_changed = "reaction_group" in changes
 
                 try:
-                    if not reaction_group_changed:
+                    if not reaction_group_changed and "reaction_group" in self.current_displaying_render:
                         if permissions.manage_messages and permissions.add_reactions:
                             await sync_reactions(self.bound_message, new_reactions)
                         else:

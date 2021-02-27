@@ -3,11 +3,15 @@ import sys
 import traceback
 from io import StringIO
 from collections import deque
+import pathlib
 
 import typing
 
 import discord
 from discord.ext import commands
+
+from cogs.command_error.capture import FrozenTracebackException, FrameVariablesPair
+from cogs.command_error.reactive import TracebackExceptionAnalyzer
 
 
 def _output_dir(indent, returned, d: dict):
@@ -29,19 +33,21 @@ def _output_list(indent, returned, lst: typing.Iterable):
 
 
 def output_variable(indent, returned, name, value):
-    if type(value) in custom_output:
-        inline_output = object.__repr__(value)
-        custom = custom_output[type(value)]
-
-    elif hasattr(value, "stack_variable_output") and callable(value.stack_variable_output):
-        inline_output = object.__repr__(value)
-        custom = value.stack_variable_output
-
+    for type_, func in custom_output.items():
+        if isinstance(value, type_):
+            inline_output = object.__repr__(value)
+            custom = custom_output[type(value)]
+            break
     else:
-        inline_output = repr(value)
+        if hasattr(value, "stack_variable_output") and callable(value.stack_variable_output):
+            inline_output = object.__repr__(value)
+            custom = value.stack_variable_output
 
-        def custom(_, __, ___):
-            pass
+        else:
+            inline_output = repr(value)
+
+            def custom(_, __, ___):
+                pass
 
     returned.append("\t" * indent + f'{name} = {inline_output}\n')
     if indent < 10:
@@ -50,7 +56,7 @@ def output_variable(indent, returned, name, value):
 
 custom_output = {
     dict: _output_dir,
-    list: _output_list
+    (list, tuple): _output_list
 }
 
 
@@ -75,9 +81,7 @@ def generate_custom_stack(type_, value: BaseException, tb, ret=None):
 
     ret.append("Locals:\n")
 
-    for k, v in frame.f_locals.items():
-        if not (k.startswith('__') and k.endswith('__')) and not inspect.ismodule(v):
-            output_variable(1, ret, k, v)
+    _output_dir(1, ret, frame.f_locals)
 
     return ret
 
@@ -91,8 +95,12 @@ class CommandError(commands.Cog):
     async def cog_check(self, ctx):
         return await self.bot.is_owner(ctx.author)
 
-    @commands.command()
-    async def collect(self, ctx, idx=0):
+    @commands.group()
+    async def collected(self, ctx):
+        pass
+
+    @collected.command()
+    async def trace(self, ctx, idx=0):
         content = self.capture[idx]
         escaped_content = content.replace("```", "``\u200b`")
         message = f"```py\n{escaped_content}```"
@@ -102,10 +110,61 @@ class CommandError(commands.Cog):
         else:
             await ctx.send(message)
 
+    @collected.command()
+    async def deep(self, ctx, idx=0):
+        frozen = self.capture[idx]
+        await TracebackExceptionAnalyzer(self.bot, ctx.channel, frozen)
+
+    def build_frozen(self, traceback_exception):
+        captured_frames = []
+
+        for frame_summary in traceback_exception.stack:
+            frame_summary: traceback.FrameSummary
+
+            v = []
+
+            _output_dir(0, v, frame_summary.locals)
+
+            captured_frames.append(FrameVariablesPair(frame_summary.line.strip(), "".join(v)))
+
+            frame_summary.locals = None  # so it doesn't print the variables when formatting the stack
+
+        stack_trace = "".join(traceback_exception.format(chain=False))
+
+        for frame_summary in traceback_exception.stack:
+            frame_summary.filename = str(pathlib.Path(*pathlib.Path(frame_summary.filename).parts[-2:]))
+            frame_summary._line = f"```py\n{frame_summary.line}```"
+
+        discord_stack_trace = []
+
+        for line in traceback_exception.format(chain=False):
+            first_line = line.split("\n")[0]
+
+            final = f"`{first_line}`" + "\n".join(line.split("\n")[1:]) + "\n"
+
+            discord_stack_trace.append(final)
+
+        discord_stack_trace = "".join(discord_stack_trace)
+
+        if traceback_exception.__context__ is not None:
+            context = self.build_frozen(traceback_exception.__context__)
+        else:
+            context = None
+
+        if traceback_exception.__cause__ is not None:
+            cause = self.build_frozen(traceback_exception.__cause__)
+        else:
+            cause = None
+
+        return FrozenTracebackException(captured_frames, stack_trace, discord_stack_trace, cause, context)
+
     def capture_exception(self, type_, value: BaseException, tb, returner=None):
-        stack = "".join(generate_custom_stack(type_, value, tb, returner))
-        self.capture.append(stack)
-        print(stack, file=sys.stderr)
+        traceback_exception = traceback.TracebackException(type_, value, tb, capture_locals=True)
+
+        captured = self.build_frozen(traceback_exception)
+
+        self.capture.append(captured)
+        print("".join(captured.get_full_console_output()), file=sys.stderr)
         print(f"Exception has been collected", file=sys.stderr)
 
     @commands.Cog.listener()
