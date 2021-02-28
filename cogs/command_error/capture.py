@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from textwrap import indent
 from typing import List
 
+
 # this stores the str output instead of the actual frames
 # because of space and such
 # and also because it doesn't make sense to store a large amount
@@ -14,6 +15,7 @@ from typing import List
 class FrameVariablesPair:
     frame_line: str
     variables_output: str
+
 
 @dataclass
 class FrozenTracebackException:

@@ -15,6 +15,7 @@ class Firestore(commands.Cog):
 
         self.db = firestore.AsyncClient("quantum-database", credentials)
 
+    # noinspection PyTypeChecker
     async def get(self, *walk):
         current = self.db
         snapshot = None

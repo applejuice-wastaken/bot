@@ -1,5 +1,3 @@
-import asyncio
-from functools import partial
 from typing import List
 
 import discord

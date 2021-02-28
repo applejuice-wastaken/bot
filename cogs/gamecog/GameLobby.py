@@ -283,17 +283,19 @@ class SettingsPage(Page):
 
         self.message.requires_render = True
 
+
 class StartedPage(Page):
     def render_message(self) -> Dict[str, Any]:
         embed = discord.Embed(title="Game has begun", color=0x333333)
 
         return dict(embed=embed, reaction_group="stp")
 
+
 class GameLobby(RoutedReactiveMessage, HoistedReactiveMessage):
     ROUTE = (Route()
              .add_route("settings", SettingsPage)
              .add_route("prepare", PreparePage)
-    .add_route("started", StartedPage)
+             .add_route("started", StartedPage)
              .base(MainPage))
 
     editing_which = RenderingProperty("editing_which")

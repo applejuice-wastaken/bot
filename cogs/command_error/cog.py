@@ -1,10 +1,9 @@
+import pathlib
 import sys
 import traceback
-from io import StringIO
-from collections import deque
-import pathlib
-
 import typing
+from collections import deque
+from io import StringIO
 
 import discord
 from discord.ext import commands
