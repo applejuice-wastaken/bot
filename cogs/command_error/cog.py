@@ -1,4 +1,3 @@
-import inspect
 import sys
 import traceback
 from io import StringIO
@@ -14,25 +13,26 @@ from cogs.command_error.capture import FrozenTracebackException, FrameVariablesP
 from cogs.command_error.reactive import TracebackExceptionAnalyzer
 
 
-def _output_dir(indent, returned, d: dict):
+def _output_dir(indent, arr, d: dict):
     idx = 0
     for pair in d.items():
-        output_variable(indent, returned, repr(pair[0]), pair[1])
+        print(pair[1], type(pair[1]))
+        output_variable(indent, arr, repr(pair[0]), pair[1])
         idx += 1
         if idx > 10:
-            returned.append("\t" * indent + '...\n')
+            arr.append("\t" * indent + '...\n')
             return
 
 
-def _output_list(indent, returned, lst: typing.Iterable):
+def _output_list(indent, arr, lst: typing.Iterable):
     for idx, value in enumerate(lst):
-        output_variable(indent, returned, idx, value)
+        output_variable(indent, arr, idx, value)
         if idx > 10:
-            returned.append("\t" * indent + '...\n')
+            arr.append("\t" * indent + '...\n')
             return
 
 
-def output_variable(indent, returned, name, value):
+def output_variable(indent, arr, name, value):
     for type_, func in custom_output.items():
         if isinstance(value, type_):
             inline_output = object.__repr__(value)
@@ -49,9 +49,9 @@ def output_variable(indent, returned, name, value):
             def custom(_, __, ___):
                 pass
 
-    returned.append("\t" * indent + f'{name} = {inline_output}\n')
+    arr.append("\t" * indent + f'{name} = {inline_output}\n')
     if indent < 10:
-        custom(indent + 1, returned, value)
+        custom(indent + 1, arr, value)
 
 
 custom_output = {
@@ -60,17 +60,17 @@ custom_output = {
 }
 
 
-def generate_custom_stack(type_, value: BaseException, tb, ret=None):
-    if ret is None:
-        ret = []
+def generate_custom_stack(type_, value: BaseException, tb, arr=None):
+    if arr is None:
+        arr = []
 
     if value.__context__ is not None:
         value = value.__context__
         type_ = type(value)
         tb = value.__traceback__
 
-    ret.extend(traceback.format_exception(type_, value, tb))
-    ret.append("\n")
+    arr.extend(traceback.format_exception(type_, value, tb))
+    arr.append("\n")
 
     while True:  # get to the most recent stack
         if tb.tb_next is None:
@@ -79,11 +79,9 @@ def generate_custom_stack(type_, value: BaseException, tb, ret=None):
 
     frame = tb.tb_frame
 
-    ret.append("Locals:\n")
+    arr.append("Locals:\n")
 
-    _output_dir(1, ret, frame.f_locals)
-
-    return ret
+    _output_dir(1, arr, frame.f_locals)
 
 
 class CommandError(commands.Cog):
@@ -123,7 +121,9 @@ class CommandError(commands.Cog):
 
             v = []
 
-            _output_dir(0, v, frame_summary.locals)
+            # noinspection PyUnresolvedReferences
+            for var, re in frame_summary.locals.items():
+                output_variable(0, v, var, re)
 
             captured_frames.append(FrameVariablesPair(frame_summary.line.strip(), "".join(v)))
 
@@ -158,7 +158,7 @@ class CommandError(commands.Cog):
 
         return FrozenTracebackException(captured_frames, stack_trace, discord_stack_trace, cause, context)
 
-    def capture_exception(self, type_, value: BaseException, tb, returner=None):
+    def capture_exception(self, type_, value: BaseException, tb):
         traceback_exception = traceback.TracebackException(type_, value, tb, capture_locals=True)
 
         captured = self.build_frozen(traceback_exception)
@@ -172,19 +172,12 @@ class CommandError(commands.Cog):
         if not isinstance(error, (commands.CommandInvokeError, commands.CommandNotFound)):
             await ctx.send(str(error))
         elif isinstance(error, commands.CommandInvokeError):
-            self.capture_exception(type(error), error, error.__traceback__,
-                                   ["Error while executing command\n"])
+            self.capture_exception(type(error), error, error.__traceback__)
 
-    async def on_error(self, name, *args, **kwargs):
+    async def on_error(self, *_, **__):
         error_type, error, tb = sys.exc_info()
 
-        header = [f"Error while executing event {name}\n", f"Args:\n"]
-
-        _output_list(1, header, args)
-        header.append("Kwargs:\n")
-        _output_dir(1, header, kwargs)
-
-        self.capture_exception(error_type, error, tb, header)
+        self.capture_exception(error_type, error, tb)
 
 
 def setup(bot):
