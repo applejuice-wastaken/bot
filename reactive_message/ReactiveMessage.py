@@ -87,14 +87,21 @@ def _strip_only_message(data):
     return ret
 
 
-def checks_updates(func):
-    @wraps(func)
-    async def wrapper(self, *args, **kwargs):
-        async with self.lock:
-            await func(self, *args, **kwargs)
-            await self.check_update()
+def checks_updates(function=None, *, always=False):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            self: ReactiveMessage
+            async with self.lock:
+                should_update = await func(self, *args, **kwargs)
+                if should_update or always:
+                    await self.update()
+        return wrapper
 
-    return wrapper
+    if function is None:
+        return decorator
+    else:
+        return decorator(function)
 
 
 class ReactiveMessage(ABC):
@@ -113,8 +120,6 @@ class ReactiveMessage(ABC):
         # as message render will be pointing to what should be rendered to discord if permissions
         # were granted
 
-        self.requires_render = False
-
         self.running = True
 
         self.functional = False  # this should be false if the message cannot be rendered properly
@@ -123,10 +128,7 @@ class ReactiveMessage(ABC):
 
         self.bot.add_listener_object(self)
 
-    def __await__(self):
-        # this looks weird lol
-        yield from self.send().__await__()
-        return self
+        asyncio.get_running_loop().create_task(self.send())
 
     @abstractmethod
     def render_message(self) -> Dict[str, Any]:
@@ -199,10 +201,6 @@ class ReactiveMessage(ABC):
         if reactions is not None:
             await send_reactions(self.bound_message, reactions)
 
-    async def check_update(self):
-        if self.running and self.requires_render:
-            await self.update()
-
     async def update(self):
         message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
         await self.update_from_dict(message_kwargs)
@@ -260,6 +258,9 @@ class ReactiveMessage(ABC):
                     if not reaction_group_changed and "reaction_group" in self.current_displaying_render:
                         if permissions.manage_messages and permissions.add_reactions:
                             await sync_reactions(self.bound_message, new_reactions)
+                        elif permissions.add_reactions:
+                            await send_reactions(self.bound_message, new_reactions)
+                            reaction_re_sync_required = True
                         else:
                             reaction_re_sync_required = True
                     else:
@@ -294,7 +295,7 @@ class ReactiveMessage(ABC):
     @checks_updates
     async def on_message(self, message):
         if self.functional and message.channel.id == self.channel.id and self.bot.user.id != message.author.id:
-            await self.process_message(message)
+            return await self.process_message(message)
 
     @checks_updates
     async def on_reaction_add(self, reaction, user):
@@ -302,7 +303,7 @@ class ReactiveMessage(ABC):
             return
 
         if self.functional and self.bound_message.id == reaction.message.id and self.bot.user.id != user.id:
-            await self.process_reaction_add(reaction, user)
+            return await self.process_reaction_add(reaction, user)
 
     async def on_message_delete(self, message):
         if self.bound_message is None:

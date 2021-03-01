@@ -38,7 +38,7 @@ class GameCog(commands.Cog):
             await ctx.send("This game does not exist")
             return
 
-        self.lobbies.append(await GameLobby(self.bot, ctx.channel, games[game_name], ctx.author, self))
+        self.lobbies.append(GameLobby(self.bot, ctx.channel, games[game_name], ctx.author, self))
 
     @commands.dm_only()
     @commands.command()
@@ -79,7 +79,7 @@ class GameCog(commands.Cog):
         # deletes the lobby
         lobby.route = "started"
 
-        await lobby.check_update()
+        await lobby.update()
 
         await lobby.remove()
 

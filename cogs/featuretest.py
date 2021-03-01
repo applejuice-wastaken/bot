@@ -6,20 +6,20 @@ from discord.ext import commands
 
 from reactive_message.HoistedReactiveMessage import HoistedReactiveMessage
 from reactive_message.ReactiveMessage import ReactiveMessage
-from reactive_message.RenderingProperty import RenderingProperty
 from reactive_message.RoutedReactiveMessage import RoutedReactiveMessage, Route, Page
 
 
 class TestReactiveMessageBasis:
-    reactions = RenderingProperty("show_reactions")
-    show_embed = RenderingProperty("show_embed")
-    change_content = RenderingProperty("change_content")
-
     ONE = "\u0031\ufe0f\u20e3"
     TWO = "\u0032\ufe0f\u20e3"
     THREE = "\u0033\ufe0f\u20e3"
     FOUR = "\u0034\ufe0f\u20e3"
     FIVE = "\u0035\ufe0f\u20e3"
+
+    def __init__(self):
+        self.reactions = False
+        self.show_embed = False
+        self.change_content = False
 
     def generate_embed(self):
         return discord.Embed(title="This command tests the reactive_message module and it's updatability",
@@ -51,13 +51,22 @@ class TestReactiveMessageBasis:
             self.show_embed = not self.show_embed
         elif reaction.emoji == self.THREE:
             self.change_content = not self.change_content
+        else:
+            return False
+        return True
 
 
 class TestReactiveMessage(TestReactiveMessageBasis, ReactiveMessage):
-    pass
+    def __init__(self, bot, channel):
+        ReactiveMessage.__init__(self, bot, channel)
+        TestReactiveMessageBasis.__init__(self)
 
 
 class TestReactiveMessageHoist(TestReactiveMessageBasis, HoistedReactiveMessage):
+    def __init__(self, bot, channel):
+        HoistedReactiveMessage.__init__(self, bot, channel)
+        TestReactiveMessageBasis.__init__(self)
+
     def generate_embed(self):
         return discord.Embed(title="This command tests the reactive_message module and it's updatability\n"
                                    "It also tests the hoist capability of this module",
@@ -77,12 +86,14 @@ class RoutePage(Page):
     async def process_message(self, message):
         if len(message.content) == 1:
             self.message.route = message.content
+            return True
 
 
 class SubPage(Page, ABC):
     async def process_message(self, message):
         if message.content == "back":
             self.message.route = ""
+            return True
 
 
 class APage(SubPage):
@@ -100,6 +111,7 @@ class BPage(SubPage):
         await super(BPage, self).process_message(message)
         if message.content != "back":
             self.message.route = f"b.{message.content[:10]}"
+            return True
 
 
 class RestPage(SubPage):
@@ -130,15 +142,15 @@ class FeatureTester(commands.Cog):
 
     @commands.command(name="reactive-menu")
     async def rm(self, ctx):
-        await self.bot.get_cog("ReactMenu").instantiate_new(TestReactiveMessage, ctx.channel)
+        TestReactiveMessage(self.bot, ctx.channel)
 
     @commands.command(name="reactive-menu-hoist")
     async def rmh(self, ctx):
-        await self.bot.get_cog("ReactMenu").instantiate_new(TestReactiveMessageHoist, ctx.channel)
+        TestReactiveMessageHoist(self.bot, ctx.channel)
 
     @commands.command(name="reactive-menu-route")
     async def rmr(self, ctx):
-        await self.bot.get_cog("ReactMenu").instantiate_new(TestRouteReactiveMessage, ctx.channel)
+        TestRouteReactiveMessage(self.bot, ctx.channel)
 
 
 def setup(bot):

@@ -8,7 +8,6 @@ import discord
 from games.Game import Game
 from games.GameSetting import GameSetting
 from reactive_message.HoistedReactiveMessage import HoistedReactiveMessage
-from reactive_message.RenderingProperty import RenderingProperty
 from reactive_message.RoutedReactiveMessage import RoutedReactiveMessage, Page, Route
 
 
@@ -76,9 +75,10 @@ class MainPage(Page):
         elif reaction.emoji == self.PLAY_GAME:
             if user.id == self.message.owner.id:
                 self.message.route = "prepare"
-                # await self.message.game_cog.begin_game_for_lobby(self.message)
 
-        self.message.requires_render = True
+        else:
+            return False
+        return True
 
 
 async def request(bot, reactive_message, text, value_type, check):
@@ -181,6 +181,10 @@ class PreparePage(Page):
                 await self.send_confirmation(user)
                 self.message.requires_render = True
 
+        else:
+            return False
+        return True
+
     async def on_raw_reaction_add(self, ev):
         for idx, (message, player) in enumerate(self.waiting_confirm):
             if ev.message_id == message.id and ev.emoji.name == self.CONFIRM and ev.user_id == player.id:
@@ -188,9 +192,8 @@ class PreparePage(Page):
                 self.confirmed_messages.append(message)
                 if len(self.waiting_confirm) == 0 and len(self.waiting_resend) == 0:
                     await self.message.game_cog.begin_game_for_lobby(self.message)
-                    return
-                self.message.requires_render = True
-                return
+                    return False
+                return True
 
 
 class SettingsPage(Page):
@@ -281,7 +284,9 @@ class SettingsPage(Page):
                     if val is not None:
                         self.message.game_settings[picked_setting[0]] = val
 
-        self.message.requires_render = True
+        else:
+            return False
+        return True
 
 
 class StartedPage(Page):
@@ -292,13 +297,13 @@ class StartedPage(Page):
 
 
 class GameLobby(RoutedReactiveMessage, HoistedReactiveMessage):
+    ENFORCE_REACTION_POSITIONS = False
+
     ROUTE = (Route()
              .add_route("settings", SettingsPage)
              .add_route("prepare", PreparePage)
              .add_route("started", StartedPage)
              .base(MainPage))
-
-    editing_which = RenderingProperty("editing_which")
 
     def __init__(self, cog, channel, game_class: Type[Game], owner, game_cog):
         super(GameLobby, self).__init__(cog, channel)

@@ -4,7 +4,6 @@ import discord
 
 from cogs.command_error.capture import FrozenTracebackException
 from reactive_message.ReactiveMessage import ReactiveMessage
-from reactive_message.RenderingProperty import RenderingProperty
 
 
 class TracebackExceptionAnalyzer(ReactiveMessage):
@@ -13,10 +12,6 @@ class TracebackExceptionAnalyzer(ReactiveMessage):
     BACK = "\u2b06\ufe0f"
     CAUSE = "\U0001f1e6"
     CONTEXT = "\U0001f1e8"
-
-    original = RenderingProperty("original")
-    current = RenderingProperty("current")
-    frame_index = RenderingProperty("frame_index")
 
     def __init__(self, bot, channel, frozen_exception: FrozenTracebackException):
         super().__init__(bot, channel)

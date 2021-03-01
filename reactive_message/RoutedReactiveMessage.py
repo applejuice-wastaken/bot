@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, Tuple, Type
 
 from reactive_message.ReactiveMessage import ReactiveMessage, checks_updates
-from reactive_message.RenderingProperty import RenderingProperty
 
 
 def chain(func):
@@ -70,7 +69,6 @@ class Route:
 class RoutedReactiveMessage(ReactiveMessage):
     ROUTE = None
     ERROR_PAGE = None
-    route = RenderingProperty("route")
 
     def __init__(self, cog, channel):
         super().__init__(cog, channel)
@@ -163,4 +161,4 @@ class RoutedReactiveMessage(ReactiveMessage):
     async def on_event(self, event_name, *args, **kwargs):
         method = f"on_{event_name}"
         if hasattr(self._current_page, method) and callable(getattr(self._current_page, method)):
-            await getattr(self._current_page, method)(*args, **kwargs)
+            return await getattr(self._current_page, method)(*args, **kwargs)
