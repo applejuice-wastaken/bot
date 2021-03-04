@@ -43,10 +43,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
         if condition_denied:
             disallowed_fragments.append(f"you could not do this with {human_join_list(condition_denied)}")
 
-        final = human_join_list(disallowed_fragments, True)
-
-        if acted is not None:
-            final = f"{acted} but {final}"
+        final = "but".join((acted, human_join_list(disallowed_fragments, True)))
 
         await ctx.send(final, allowed_mentions=discord.AllowedMentions.none())
     return commands.guild_only()(commands.command(name=name)(wrapped))
