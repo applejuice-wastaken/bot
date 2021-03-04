@@ -38,10 +38,10 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             acted = f"{ctx.author.mention} {action} {human_join_list(allowed)}"
 
         if role_denied:
-            disallowed_fragments.append(f"{human_join_list(role_denied)} did not allow you to do this")
+            disallowed_fragments.append(f"{human_join_list(role_denied)} did not allow them to do this")
 
         if condition_denied:
-            disallowed_fragments.append(f"you could not do this with {human_join_list(condition_denied)}")
+            disallowed_fragments.append(f"they could not do this with {human_join_list(condition_denied)}")
 
         final = []
         if acted is not None:
