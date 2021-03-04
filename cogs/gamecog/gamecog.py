@@ -23,6 +23,7 @@ class GameCog(commands.Cog):
 
     @commands.group()
     async def game(self, ctx):
+        """Group command for games"""
         pass
 
     @commands.guild_only()
@@ -41,8 +42,8 @@ class GameCog(commands.Cog):
         self.lobbies.append(GameLobby(self.bot, ctx.channel, games[game_name], ctx.author, self))
 
     @commands.dm_only()
-    @commands.command()
-    async def l(self, ctx):
+    @commands.command(aliases=("l",))
+    async def leave(self, ctx):
         if ctx.author.id in self.user_state and not isinstance(self.user_state[ctx.author.id], str):
             # user is in a game
 
@@ -60,7 +61,7 @@ class GameCog(commands.Cog):
         for player in lobby.queued_players:
             try:
                 await player.send(f"A {instance_class.game_name} game is starting,"
-                                  f" use {self.bot.command_prefix}l to leave the game")
+                                  f" use {self.bot.command_prefix}leave to leave the game")
             except discord.Forbidden:
                 pass
             else:
