@@ -5,17 +5,7 @@ from typing import List, Sequence
 from games.Game import EndGame, LeaveReason
 from games.GameHasTimeout import GameWithTimeout
 from games.round.RoundAction import RoundAction, Category, Verb, Literal
-
-
-def human_join_list(input_list: list, analyse_contents=False):
-    if len(input_list) == 0:
-        return ""
-    elif len(input_list) == 1:
-        return input_list[0]
-    elif analyse_contents and " and " in input_list[-1]:
-        return ", ".join(input_list)
-    else:
-        return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
+from util.human_join_list import human_join_list
 
 
 def action_join(actions: Sequence[Sequence[Category]]):

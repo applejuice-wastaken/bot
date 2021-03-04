@@ -28,15 +28,6 @@ def decode_data(data):
     return data
 
 
-def human_join_list(input_list: list):
-    if len(input_list) == 0:
-        return ""
-    elif len(input_list) == 1:
-        return input_list[0]
-    else:
-        return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
-
-
 def bar(size, value, letter):
     return "|" + (" " * math.floor(value * size)) + letter + (" " * math.ceil((1 - value) * size)) + ":"
 

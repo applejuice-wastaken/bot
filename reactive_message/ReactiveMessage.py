@@ -59,17 +59,6 @@ async def send_reactions(message: discord.Message, reactions: Iterable[str]):
         await message.add_reaction(reaction)
 
 
-def human_join_list(input_list: list, analyse_contents=False):
-    if len(input_list) == 0:
-        return ""
-    elif len(input_list) == 1:
-        return input_list[0]
-    elif analyse_contents and " and " in input_list[-1]:
-        return ", ".join(input_list)
-    else:
-        return " and ".join((", ".join(input_list[:-1]), input_list[-1]))
-
-
 def format_permissions(perms):
     return f"this message requires " \
            f"{human_join_list([perm.replace('_', ' ').replace('guild', 'server').title() for perm in perms])}" \
