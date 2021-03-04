@@ -22,7 +22,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
 
         for user in users:
             role = discord.utils.get(user.roles, name=f"no {name}")
-            mention = user.mention
+            mention = "themselves" if user == ctx.author else user.mention
             if role is None:
                 if condition(ctx.author, user):
                     allowed.append(mention)
