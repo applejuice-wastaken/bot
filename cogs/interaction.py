@@ -1,12 +1,17 @@
+from typing import List
+
 import discord
 from discord.ext import commands
 import operator
+
+from discord.ext.commands import MemberConverter, BadArgument
 
 from util.human_join_list import human_join_list
 
 
 def interaction_command_factory(name, action, condition=lambda _, __: True):
-    async def wrapped(self, ctx, *users: discord.Member):
+    async def wrapped(self, ctx, *users: RelativeMemberConverter):
+        users: List[discord.Member]
         role = discord.utils.get(ctx.author.roles, name=f"no {name}")
         if role is not None:
             await ctx.send(f"But you don't like that")
@@ -52,6 +57,35 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
 
         await ctx.send(" but ".join(final), allowed_mentions=discord.AllowedMentions.none())
     return commands.guild_only()(commands.command(name=name)(wrapped))
+
+class TooManyExponentials(BadArgument):
+    def __init__(self, amount):
+        self.amount = amount
+        super().__init__('Too many exponentials provided.')
+
+class RelativeMemberConverter(MemberConverter):
+    async def convert(self, ctx, argument):
+        if argument == "me":
+            return ctx.author
+
+        elif argument[1:] == argument[:-1] and argument[0] == "^":  # if the argument is a sequence of ^
+            many = len(argument)  # get number of ^
+
+            if many > 5:
+                raise TooManyExponentials(many)
+
+            last = ctx.author
+
+            async for message in ctx.channel.history(before=ctx.message):
+                message: discord.Message
+                if message.author != last:
+                    last = message.author
+                    many -= 1
+                    if many == 0:
+                        return await self.query_member_by_id(ctx.bot, ctx.guild, message.author.id)
+
+        return await super(RelativeMemberConverter, self).convert(ctx, argument)
+
 
 class Interaction(commands.Cog):
     def __init__(self, bot):
