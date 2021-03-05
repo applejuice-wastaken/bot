@@ -61,7 +61,7 @@ class UnoGame(RoundGame):
 
         self.state = None  # holds the game current state
         self.players_decks: Dict[int, List[CardInstance]] = {}
-        self.global_deck = registry.generate_deck()
+        self.global_deck = registry.generate_deck()[:20]
         self.last_played = None
 
         self.cards_to_take = 0
@@ -112,7 +112,7 @@ class UnoGame(RoundGame):
 
     def check_regen_deck(self):
         if len(self.global_deck) < 10:
-            self.global_deck.extend(self.generate_deck())
+            self.global_deck.extend(registry.generate_deck())
             self.add_round_action(DeckRegen())
 
     async def on_message(self, message, player):
@@ -233,5 +233,5 @@ class DeckRegen(RoundAction):
     def __init__(self):
         super().__init__(None)
 
-    def represent(self, is_first_person) -> str:
-        return f"deck regenerated"
+    def represent(self, is_first_person) -> Collection[Category]:
+        return Literal(f"the deck regenerates"),

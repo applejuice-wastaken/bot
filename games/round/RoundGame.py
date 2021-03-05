@@ -142,7 +142,7 @@ class RoundGame(GameWithTimeout):
     def compose_round_actions(self, list_of_actions, for_player) -> str:
         chunk = []
         about_player = None
-        ret = ""
+        same_player_chunks = []
 
         for action in list_of_actions:
             author = action.get_author()
@@ -150,10 +150,14 @@ class RoundGame(GameWithTimeout):
             if author != about_player:
                 if len(chunk) > 0:
 
-                    if about_player is not None:
-                        ret += "You " if for_player == about_player else (about_player.mention + " ")
+                    same_player_chunk = ""
 
-                    ret += action_join(chunk)
+                    if about_player is not None:
+                        # if the action is tied to someone, we should reference the author
+                        same_player_chunk += "you " if for_player == about_player else (about_player.mention + " ")
+
+                    same_player_chunk += action_join(chunk)
+                    same_player_chunks.append(same_player_chunk)
                     chunk.clear()
 
                 about_player = author
@@ -162,12 +166,16 @@ class RoundGame(GameWithTimeout):
 
         if len(chunk) > 0:
 
+            same_player_chunk = ""
+
             if about_player is not None:
-                ret += "You " if for_player == about_player else (about_player.mention + " ")
+                same_player_chunk += "You " if for_player == about_player else (about_player.mention + " ")
 
-            ret += action_join(chunk)
+            same_player_chunk += action_join(chunk)
 
-        return ret
+            same_player_chunks.append(same_player_chunk)
+
+        return human_join_list(same_player_chunks, True)
 
     def cycle(self):
         if self.direction == Direction.UP_WARDS:
