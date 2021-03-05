@@ -55,7 +55,12 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
         if disallowed_fragments:
             final.append(human_join_list(disallowed_fragments, True))
 
-        await ctx.send(" but ".join(final), allowed_mentions=discord.AllowedMentions.none())
+        to_send = " but ".join(final)
+
+        if len(to_send) > 500:
+            await ctx.send("I would send it the message wasn't this long")
+
+        await ctx.send(to_send, allowed_mentions=discord.AllowedMentions.none())
     return commands.guild_only()(commands.command(name=name)(wrapped))
 
 class TooManyExponentials(BadArgument):
