@@ -61,7 +61,7 @@ class UnoGame(RoundGame):
 
         self.state = None  # holds the game current state
         self.players_decks: Dict[int, List[CardInstance]] = {}
-        self.global_deck = registry.generate_deck()[:20]
+        self.global_deck = registry.generate_deck()
         self.last_played = None
 
         self.cards_to_take = 0
