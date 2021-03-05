@@ -6,6 +6,8 @@ from typing import Dict, Any, Optional, Iterable
 
 import discord
 
+from util.human_join_list import human_join_list
+
 
 def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
     ret = {}
@@ -55,8 +57,12 @@ async def sync_reactions(message: discord.Message, reactions: Iterable[str]):
 
 
 async def send_reactions(message: discord.Message, reactions: Iterable[str]):
+    message = await message.channel.fetch_message(message.id)
+
     for reaction in reactions:
-        await message.add_reaction(reaction)
+        message_reaction = discord.utils.get(message.reactions, emoji=reaction)
+        if message_reaction is None or not message_reaction.me:
+            await message.add_reaction(reaction)
 
 
 def format_permissions(perms):
