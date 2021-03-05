@@ -1,3 +1,4 @@
+from collections import deque, namedtuple
 from typing import List
 
 import discord
@@ -10,25 +11,32 @@ from util.human_join_list import human_join_list
 
 
 def interaction_command_factory(name, action, condition=lambda _, __: True):
-    async def wrapped(self, ctx, *users: RelativeMemberConverter):
+    async def command(self, ctx, *users: RelativeMemberConverter):
+        message = await make_response(self, ctx, *users)
+
+        if message is not None:
+            async def unload():
+                await message.delete()
+
+            ctx.bot.get_cog("Uninvoke").create_unload(ctx.message, unload)
+
+    async def make_response(self, ctx, *users: discord.Member):
         users: List[discord.Member]
-        role = discord.utils.get(ctx.author.roles, name=f"no {name}")
-        if role is not None:
-            await ctx.send(f"But you don't like that")
-            return
+
+        if not self.user_accepts(ctx.author, name):
+            return await ctx.send(f"But you don't like that")
 
         if not users:
-            await ctx.send(f"{ctx.author.mention} {action} the air...?", allowed_mentions=discord.AllowedMentions.none())
-            return
+            return await ctx.send(f"{ctx.author.mention} {action} the air...?", allowed_mentions=discord.AllowedMentions.none())
 
         allowed = []
         role_denied = []
         condition_denied = []
 
         for user in users:
-            role = discord.utils.get(user.roles, name=f"no {name}")
             mention = "themselves" if user == ctx.author else user.mention
-            if role is None:
+
+            if self.user_accepts(user, name):
                 if condition(ctx.author, user):
                     allowed.append(mention)
                 else:
@@ -58,10 +66,10 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
         to_send = " but ".join(final)
 
         if len(to_send) > 500:
-            await ctx.send("I would send it the message wasn't this long")
+            return await ctx.send("I would send it the message wasn't this long")
 
-        await ctx.send(to_send, allowed_mentions=discord.AllowedMentions.none())
-    return commands.guild_only()(commands.command(name=name)(wrapped))
+        return await ctx.send(to_send, allowed_mentions=discord.AllowedMentions.none())
+    return commands.guild_only()(commands.command(name=name)(command))
 
 class TooManyExponentials(BadArgument):
     def __init__(self, amount):
@@ -91,10 +99,55 @@ class RelativeMemberConverter(MemberConverter):
 
         return await super(RelativeMemberConverter, self).convert(ctx, argument)
 
+def bulk_delete(sequence, **attrs):
+    converted = [
+        (operator.attrgetter(attr.replace('__', '.')), value)
+        for attr, value in attrs.items()
+    ]
+
+    found = []
+
+    for elem in sequence:
+        if all(pred(elem) == value for pred, value in converted):
+            found.append(elem)
+
+    for obj in found:
+        sequence.remove(obj)
+
+
+CacheRecord = namedtuple("CacheRecord", "guild_id member_id action value")
 
 class Interaction(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+        self.command_cache = deque(maxlen=100)
+
+    def user_accepts(self, member, action):
+        cached = discord.utils.get(self.command_cache, guild_id=member.guild.id, member_id=member.id, action=action)
+
+        if cached is None:
+            role = discord.utils.get(member.roles, name=f"no {action}")
+
+            accepts = role is None
+
+            self.command_cache.append(CacheRecord(guild_id=member.guild.id,
+                                                  member_id=member.id,
+                                                  action=action,
+                                                  value=accepts))
+
+            return accepts
+        else:
+            return cached.value
+
+    @commands.Cog.listener()
+    async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
+        if before.name.startswith("no "):
+            bulk_delete(self.command_cache, guild_id=before.guild.id, action=before.name[3:])
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        bulk_delete(self.command_cache, member_id=before.id)
 
     hug = interaction_command_factory("hug", "hugs")
     kiss = interaction_command_factory("kiss", "kisses")

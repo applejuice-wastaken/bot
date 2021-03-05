@@ -15,21 +15,30 @@ class Uninvoke(commands.Cog):
         return entry
 
     @commands.Cog.listener()
-    async def on_message_delete(self, message):
-        raw = [(idx, item) for idx, item in enumerate(self._uninvokers) if item.message.id == message.id]
-        if len(raw) == 0:
+    async def on_message_edit(self, before, after):
+        if before.content == after.content:
             return
 
-        index, item = raw[0]
+        unloader = discord.utils.get(self._uninvokers, message__id=after.id)
 
-        await discord.utils.maybe_coroutine(item.action)
+        if unloader is not None:
+            await discord.utils.maybe_coroutine(unloader.action)
 
-        self._uninvokers.remove(item)
+            self._uninvokers.remove(unloader)
+
+        await self.bot.process_commands(after)
+
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        unloader = discord.utils.get(self._uninvokers, message__id = message.id)
+
+        if unloader is not None:
+            await discord.utils.maybe_coroutine(unloader.action)
+
+            self._uninvokers.remove(unloader)
 
 
-class UnloadEntry(namedtuple("UnloadEntry", "message action")):
-    def __getattr__(self, item):
-        return getattr(self.actions, item)
+UnloadEntry = namedtuple("UnloadEntry", "message action")
 
 
 def setup(bot):
