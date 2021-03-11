@@ -155,7 +155,7 @@ class TriviaGame(GameWithTimeout):
 
         embed.add_field(name="Field", value="\n".join(frag))
 
-        await self.send(embed=embed)
+        await self.players.send(embed=embed)
 
         if len(lost) > 0:
             if len(lost) == len(self.players):
@@ -180,7 +180,7 @@ class TriviaGame(GameWithTimeout):
             player.response = None
         await self.fetch_question()
         self.process_question()
-        await self.send(embed=self.embed)
+        await self.players.send(embed=self.embed)
         self.reset_timer()
 
     def process_question(self):

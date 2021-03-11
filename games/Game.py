@@ -10,7 +10,7 @@ from discord import TextChannel
 
 from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
-from games.MulticastIntent import MulticastIntent
+from games.MulticastIntent import AbstractMulticastIntent
 
 
 class EndGame(Enum):
@@ -24,21 +24,21 @@ class LeaveReason(Enum):
     CHANNEL_BLOCKED = 0
     BY_COMMAND = 1
 
+class PlayerList(AbstractMulticastIntent, list):
+    def get_targets(self):
+        return self
 
-T = TypeVar("T")
 
-
-class Game(abc.ABC, MulticastIntent):
+class Game(abc.ABC):
     game_name = "game"
     game_specific_settings: Dict[str, GameSetting] = {}
-    game_player_class: T = GamePlayer
+    game_player_class = GamePlayer
 
-    def __init__(self, cog, channel: TextChannel, players: List[T], settings):
-        super().__init__(players)
+    def __init__(self, cog, channel: TextChannel, players, settings):
         self.channel = channel
         self.running = True
         self.cog = cog
-        self.players = players
+        self.players = PlayerList(players)
         self.lock = asyncio.Lock()
         self.settings = settings
 
@@ -75,7 +75,7 @@ class Game(abc.ABC, MulticastIntent):
                                   description=f"The game ended",
                                   color=0x333333)
 
-        await self.including(self.channel).send(embed=embed)
+        await self.players.including(self.channel).send(embed=embed)
         self.cog.game_instances.remove(self)
         self.running = False
         for player in self.players:
@@ -112,7 +112,7 @@ class Game(abc.ABC, MulticastIntent):
                               description=f"{player.mention} left\n{text}",
                               color=0x333333)
 
-        await self.send(embed=embed)
+        await self.players.send(embed=embed)
 
         self.players.remove(player)
         del self.cog.user_state[player.id]

@@ -2,3 +2,4 @@ discord
 jishaku
 flask
 firebase-admin
+aiohttp

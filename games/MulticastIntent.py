@@ -1,24 +1,23 @@
 import asyncio
 from typing import TypeVar, Generic, Iterable
 
+import abc
+
 T = TypeVar('T')
 
 
-class MulticastIntent(Generic[T]):
-    def __init__(self, targets: Iterable[T]):
-        self.targets = targets
-
+class AbstractMulticastIntent(abc.ABC):
     def to(self, targets: Iterable[T]):
-        return MulticastIntent(targets)
+        return ArbitraryMulticastIntent(targets)
 
     def excluding(self, *targets: T):
-        return MulticastIntent(t for t in self.targets if t not in targets)
+        return ArbitraryMulticastIntent(t for t in self.get_targets() if t not in targets)
 
     def including(self, *targets: T):
-        return MulticastIntent(t for t in (*self.targets, *targets))
+        return ArbitraryMulticastIntent(t for t in (*self.get_targets(), *targets))
 
     def __getattr__(self, item):
-        targets = list(self.targets)
+        targets = list(self.get_targets())
 
         for t in targets:
             getattr(t, item)
@@ -37,3 +36,14 @@ class MulticastIntent(Generic[T]):
             return _()
 
         return _
+
+    @abc.abstractmethod
+    def get_targets(self):
+        pass
+
+class ArbitraryMulticastIntent(AbstractMulticastIntent):
+    def __init__(self, targets):
+        self.targets = targets
+
+    def get_targets(self):
+        return self.targets

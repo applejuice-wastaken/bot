@@ -102,7 +102,7 @@ class UnoGame(RoundGame):
         other_players_embed = discord.Embed(title=f"It's {self.current_player.display_name}'s Turn",
                                             description="They're Picking A Card", color=0x00ff00)
 
-        await self.excluding(self.current_player).send(embed=other_players_embed)
+        await self.players.excluding(self.current_player).send(embed=other_players_embed)
         await self.current_player.send(embed=current_player_embed)
 
         self.state = State.CARD_PICK

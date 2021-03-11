@@ -107,20 +107,20 @@ class BlackJackGame(GameWithTimeout):
                                                         f"{calculate_score(self.dealer_deck[0:1])})", inline=False)
 
         await self.hitting_player.send(embed=embed)
-        await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} is deciding")
+        await self.players.excluding(self.hitting_player).send(f"{self.hitting_player.mention} is deciding")
 
     async def decision_hit(self):
         card = self.global_deck.pop()
         await self.hitting_player.send(f"You hit {better_emojis(card)}")
-        await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} hits")
+        await self.players.excluding(self.hitting_player).send(f"{self.hitting_player.mention} hits")
         self.hitting_player.hand.append(card)
         score = calculate_score(self.hitting_player.hand)
         if score > 21:
             hand = build_hand(self.hitting_player.hand)
             await self.hitting_player.send(f"You busted\n"
                                            f"{hand} ({score})")
-            await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} busted\n"
-                                                           f"{hand} ({score})")
+            await self.players.excluding(self.hitting_player).send(f"{self.hitting_player.mention} busted\n"
+                                                                   f"{hand} ({score})")
 
             self.hitting.pop(self.hitting_player_idx)
             self.hitting_player_idx -= 1
@@ -129,7 +129,7 @@ class BlackJackGame(GameWithTimeout):
 
     async def decision_stay(self):
         await self.hitting_player.send("You stay")
-        await self.excluding(self.hitting_player).send(f"{self.hitting_player.mention} stays")
+        await self.players.excluding(self.hitting_player).send(f"{self.hitting_player.mention} stays")
         self.hitting.pop(self.hitting_player_idx)
         self.hitting_player_idx -= 1
         await self.end_decision()
@@ -217,7 +217,7 @@ class BlackJackGame(GameWithTimeout):
                             value=build_hand(hand.hand) + f"({hand.score})",
                             inline=False)
 
-        await self.send(embed=embed)
+        await self.players.send(embed=embed)
         self.round_timeout = -1
 
         if game_winner is not None:
