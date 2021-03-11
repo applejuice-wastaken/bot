@@ -3,3 +3,4 @@ jishaku
 flask
 firebase-admin
 aiohttp
+Pillow
