@@ -86,7 +86,7 @@ class Imaging(commands.Cog):
         return output
 
     @generic_flag_command("overlay")
-    def flag_executor(self, user_bin, flag_bin):
+    def overlay_executor(self, user_bin, flag_bin):
         user = Image.open(BytesIO(user_bin))
         flag = Image.open(BytesIO(flag_bin)).resize(user.size)
         mask = Image.new('L', user.size, 128)
