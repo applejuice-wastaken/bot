@@ -37,7 +37,7 @@ def generic_flag_command(name):
         func = image_as_io(func)
 
         @commands.command(name=name)
-        async def command(self, ctx, label_name):
+        async def command(self, ctx, *, label_name):
             if ":" in label_name:
                 chunks = label_name.split(":")
                 ret = await url_from_name(chunks[1], chunks[0])
