@@ -31,7 +31,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             elif u == ctx.bot.user:
                 return "me"
             else:
-                return user.name
+                return u.name
 
         self: Interaction
         users: List[discord.Member]
