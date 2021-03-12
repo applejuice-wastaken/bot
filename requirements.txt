@@ -1,6 +1,7 @@
-discord~=1.0.1
+discord
 jishaku
 flask
 firebase-admin
-aiohttp~=3.6.3
-Pillow~=8.1.2
+aiohttp
+Pillow
+async_lru
