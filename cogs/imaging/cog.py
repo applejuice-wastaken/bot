@@ -59,6 +59,24 @@ def generic_flag_command(name):
 
     return wrapper
 
+def center_resize(target: Image.Image, width, height):
+    if target.width < target.height:
+        # width is the smallest side
+        new_width = width
+        x = 0
+        new_height = target.height * (new_width / target.width)
+        y = (new_height - height) / 2
+    else:
+        # width is the smallest side
+        new_height = height
+        y = 0
+        new_width = target.width * (new_height / target.height)
+        x = (new_width - width) / 2
+
+    box = [int(i) for i in (x, y, x + width, y + height)]
+
+    return target.resize((int(new_width), int(new_height))).crop(box)
+
 class Imaging(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -77,7 +95,7 @@ class Imaging(commands.Cog):
     @generic_flag_command("flag")
     def flag_executor(self, user_bin, flag_bin):
         user = Image.open(BytesIO(user_bin))
-        flag = Image.open(BytesIO(flag_bin)).resize(user.size)
+        flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
         edge = Image.open(asset_path("profile_edge.png")).resize(user.size).convert('L')
 
         output = Image.composite(flag, user, edge)
@@ -87,7 +105,7 @@ class Imaging(commands.Cog):
     @generic_flag_command("overlay")
     def overlay_executor(self, user_bin, flag_bin):
         user = Image.open(BytesIO(user_bin))
-        flag = Image.open(BytesIO(flag_bin)).resize(user.size)
+        flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
         mask = Image.new('L', user.size, 128)
 
         output = Image.composite(flag, user, mask)
