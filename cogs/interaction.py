@@ -1,3 +1,4 @@
+import re
 from collections import deque, namedtuple
 from typing import List
 
@@ -83,26 +84,55 @@ class TooManyExponentials(BadArgument):
         self.amount = amount
         super().__init__('Too many exponentials provided.')
 
+class RelativeConversionNotFound(BadArgument):
+    def __init__(self):
+        super().__init__('Matching user was not found in last 20 messages.')
+
+class TooManyMessageMentions(BadArgument):
+    def __init__(self):
+        super().__init__('Message has multiple mentions, ambiguity can occur.')
+
+
+EXPONENTIAL_REGEX = re.compile(r"^(m?)(\^+)$")
+
 class RelativeMemberConverter(MemberConverter):
     async def convert(self, ctx, argument):
         if argument == "me":
             return ctx.author
 
-        elif argument[1:] == argument[:-1] and argument[0] == "^":  # if the argument is a sequence of ^
-            many = len(argument)  # get number of ^
+        else:
+            match = EXPONENTIAL_REGEX.match(argument)
+            if match:
+                many = len(match.group(2))
+                flag = match.group(1)
 
-            if many > 5:
-                raise TooManyExponentials(many)
+                if many > 5:
+                    raise TooManyExponentials(many)
 
-            last = ctx.author
+                last = ctx.author
 
-            async for message in ctx.channel.history(before=ctx.message):
-                message: discord.Message
-                if message.author != last:
-                    last = message.author
-                    many -= 1
-                    if many == 0:
-                        return await self.query_member_by_id(ctx.bot, ctx.guild, message.author.id)
+                async for message in ctx.channel.history(before=ctx.message, limit=20):
+                    message: discord.Message
+                    if flag == "":
+                        if message.author != last:
+                            last = message.author
+                            many -= 1
+                            if many == 0:
+                                return await self.query_member_by_id(ctx.bot, ctx.guild, message.author.id)
+
+                    elif flag == "m":
+                        if message.mentions:
+                            many -= 1
+                            if many == 0:
+                                if len(message.mentions) == 1:
+                                    return await self.query_member_by_id(ctx.bot, ctx.guild, message.mentions[0].id)
+                                else:
+                                    raw_mentions = message.raw_mentions
+                                    if len(raw_mentions) == 1:
+                                        return await self.query_member_by_id(ctx.bot, ctx.guild, raw_mentions[0])
+                                    raise TooManyMessageMentions
+                else:
+                    raise RelativeConversionNotFound
 
         return await super(RelativeMemberConverter, self).convert(ctx, argument)
 
