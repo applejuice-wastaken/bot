@@ -1,3 +1,4 @@
+import asyncio
 import pathlib
 import sys
 import traceback
@@ -110,7 +111,7 @@ class CommandError(commands.Cog):
     @collected.command()
     async def deep(self, ctx, idx=0):
         frozen = self.capture[idx]
-        await TracebackExceptionAnalyzer(self.bot, ctx.channel, frozen)
+        TracebackExceptionAnalyzer(self.bot, ctx.channel, frozen)
 
     def build_frozen(self, traceback_exception):
         captured_frames = []
