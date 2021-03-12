@@ -10,27 +10,12 @@ from PIL import Image
 import aiohttp
 from discord.ext import commands
 
+from .flag_retreiver import url_from_name
+
+
 async def retrieve(url):
     async with aiohttp.request("GET", url) as image_response:
         return await image_response.read()
-
-async def search_wiki_and_retrieve_flag(flag_name):
-    async with aiohttp.request("GET", f"https://lgbta.wikia.org/api.php?action=query&"
-                                      f"list=search&srsearch={flag_name}&format=json") as search_response:
-        json_content = await search_response.json()
-        pages = json_content["query"]["search"]
-
-        if pages:
-            # there's results; get article image
-            first_page_id = pages[0]["pageid"]
-
-            async with aiohttp.request("GET", f"https://lgbta.wikia.org/api.php?action=imageserving&"
-                                              f"wisId={first_page_id}&format=json") as image_response:
-                json_content = await image_response.json()
-
-                return json_content["image"]["imageserving"], pages[0]["title"]
-
-    return None, None
 
 def image_as_io(func):
     @wraps(func)
@@ -53,11 +38,12 @@ def generic_flag_command(name):
 
         @commands.command(name=name)
         async def command(self, ctx, label_name):
-            flag_url, flag_name = await search_wiki_and_retrieve_flag(label_name)
-            if flag_url is None:
+            ret = await url_from_name(label_name)
+            if ret is None:
                 await ctx.send("I don't know what is that")
             else:
-                await ctx.send(f"LGBT wiki gave me a `{flag_name}` flag, "
+                flag_url, flag_name, descriptor = ret
+                await ctx.send(f"{descriptor} gave me a `{flag_name}` flag, "
                                f"unsure if that's what you want but I'll render it anyways")
                 flag_bin = await retrieve(flag_url)
                 user_bin = await ctx.author.avatar_url_as().read()
@@ -74,6 +60,14 @@ class Imaging(commands.Cog):
         self.loop = asyncio.get_event_loop()
 
         self.process_pool = ThreadPoolExecutor(2)
+
+        self.cooldown_mapping = commands.CooldownMapping.from_cooldown(1, 10.0, commands.BucketType.user)
+
+    async def cog_before_invoke(self, ctx):
+        bucket = self.cooldown_mapping.get_bucket(ctx.message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after:
+            raise commands.CommandOnCooldown(10, retry_after)
 
     @generic_flag_command("flag")
     def flag_executor(self, user_bin, flag_bin):
