@@ -11,6 +11,7 @@ retrievers: typing.List[FlagRetriever] = [CountryFlagRetriever(), LGBTFlagRetrie
 
 @alru_cache
 async def url_from_name(name, schema=None) -> typing.Optional[typing.Tuple[str, str, str]]:
+    print(name, schema)
     for retriever in retrievers:
         if schema is None or retriever.schema == schema:
             ret = await retriever.url_from_name(name)

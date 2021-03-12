@@ -38,7 +38,12 @@ def generic_flag_command(name):
 
         @commands.command(name=name)
         async def command(self, ctx, label_name):
-            ret = await url_from_name(label_name)
+            if ":" in label_name:
+                chunks = label_name.split(":")
+                ret = await url_from_name(chunks[1], chunks[0])
+            else:
+                ret = await url_from_name(label_name)
+
             if ret is None:
                 await ctx.send("I don't know what is that")
             else:
