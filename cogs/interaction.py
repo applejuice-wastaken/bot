@@ -1,3 +1,4 @@
+import inspect
 import re
 from collections import deque, namedtuple
 from typing import List
@@ -12,6 +13,8 @@ from util.human_join_list import human_join_list
 
 
 def interaction_command_factory(name, action, condition=lambda _, __: True):
+    custom_function = None
+
     async def command(self, ctx, *users: RelativeMemberConverter):
         message = await make_response(self, ctx, *users)
 
@@ -22,38 +25,49 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             ctx.bot.get_cog("Uninvoke").create_unload(ctx.message, unload)
 
     async def make_response(self, ctx, *users: discord.Member):
+        def transform(u):
+            if u == ctx.author:
+                return "themselves"
+            elif u == ctx.bot.user:
+                return "me"
+            else:
+                return user.name
+
         self: Interaction
         users: List[discord.Member]
 
         if not self.user_accepts(ctx.author, name, "thing"):
             return await ctx.send(f"But you don't like that")
 
-        if not users:
-            return await ctx.send(f"{ctx.author.name} {action} the air...?", allowed_mentions=discord.AllowedMentions.none())
-
         allowed = []
         role_denied = []
         condition_denied = []
 
         for user in users:
-            if user == ctx.author:
-                mention = "themselves"
-            elif user == ctx.bot.user:
-                mention = "me"
-            else:
-                mention = user.name
-
             # noinspection PyTypeChecker
             if self.user_accepts(user, name, "thing"):
                 if condition(ctx.author, user):
-                    allowed.append(mention)
+                    allowed.append(user)
                 else:
-                    condition_denied.append(mention)
+                    condition_denied.append(user)
             else:
-                role_denied.append(mention)
+                role_denied.append(user)
 
         acted = None
         disallowed_fragments = []
+
+        if callable(custom_function):
+            ret = await custom_function(self, ctx, allowed, role_denied, condition_denied)
+            if ret is not None:
+                return ret
+
+        allowed = [transform(user) for user in allowed]
+        role_denied = [transform(user) for user in role_denied]
+        condition_denied = [transform(user) for user in condition_denied]
+
+        if not users:
+            return await ctx.send(f"{ctx.author.name} {action} the air...?",
+                                  allowed_mentions=discord.AllowedMentions.none())
 
         if allowed:
             acted = f"{ctx.author.name} {action} {human_join_list(allowed)}"
@@ -77,16 +91,29 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             return await ctx.send("I would send it the message wasn't this long")
 
         return await ctx.send(to_send, allowed_mentions=discord.AllowedMentions.none())
-    return commands.guild_only()(commands.command(name=name)(command))
+
+    command = commands.guild_only()(commands.Command(command, name=name))
+
+    # inject command into class by putting it into a variable in it's frame
+    inspect.currentframe().f_back.f_locals[f"_command_{name}"] = command
+
+    def wrapper(func):
+        nonlocal custom_function
+        custom_function = func
+
+    return wrapper
+
 
 class TooManyExponentials(BadArgument):
     def __init__(self, amount):
         self.amount = amount
         super().__init__('Too many exponentials provided.')
 
+
 class RelativeConversionNotFound(BadArgument):
     def __init__(self):
         super().__init__('Matching user was not found in last 20 messages.')
+
 
 class TooManyMessageMentions(BadArgument):
     def __init__(self):
@@ -94,6 +121,7 @@ class TooManyMessageMentions(BadArgument):
 
 
 EXPONENTIAL_REGEX = re.compile(r"^(m?)(\^+)$")
+
 
 class RelativeMemberConverter(MemberConverter):
     async def convert(self, ctx, argument):
@@ -137,6 +165,7 @@ class RelativeMemberConverter(MemberConverter):
 
         return await super(RelativeMemberConverter, self).convert(ctx, argument)
 
+
 def bulk_delete(sequence, **attrs):
     converted = [
         (operator.attrgetter(attr.replace('__', '.')), value)
@@ -154,6 +183,7 @@ def bulk_delete(sequence, **attrs):
 
 
 CacheRecord = namedtuple("CacheRecord", "guild_id member_id action value")
+
 
 class Interaction(commands.Cog):
     def __init__(self, bot):
@@ -190,18 +220,25 @@ class Interaction(commands.Cog):
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         bulk_delete(self.command_cache, member_id=before.id)
 
-    hug = interaction_command_factory("hug", "hugs")
-    kiss = interaction_command_factory("kiss", "kisses")
-    slap = interaction_command_factory("slap", "slaps")
-    kill = interaction_command_factory("kill", "kills", operator.ne)
-    stab = interaction_command_factory("stab", "stabs", operator.ne)
-    disappoint = interaction_command_factory("disappoint", "looks in disappointment to", operator.ne)
-    stare = interaction_command_factory("stare", "stares at")
-    lick = interaction_command_factory("lick", "licks")
-    pet = interaction_command_factory("pet", "pets")
-    pat = interaction_command_factory("pat", "pats")
-    cookie = interaction_command_factory("cookie", "gives a cookie to")
-    attack = interaction_command_factory("attack", "attacks")
+    @interaction_command_factory("hug", "hugs")
+    async def custom_hug(self, ctx, allowed, role_denied, condition_denied):
+        if (not allowed or (len(allowed) == 1 and ctx.author in allowed)) \
+                and not role_denied and not condition_denied:
+            return await ctx.send("I think someone here needs a hug.")
+
+    interaction_command_factory("kiss", "kisses")
+    interaction_command_factory("slap", "slaps", operator.ne)
+    interaction_command_factory("kill", "kills", operator.ne)
+    interaction_command_factory("stab", "stabs", operator.ne)
+    interaction_command_factory("stare", "stares at")
+    interaction_command_factory("lick", "licks")
+    interaction_command_factory("pet", "pets")
+    interaction_command_factory("pat", "pats")
+    interaction_command_factory("cookie", "gives a cookie to")
+    interaction_command_factory("attack", "attacks", operator.ne)
+    interaction_command_factory("boop", "boops")
+    interaction_command_factory("cuddle", "cuddles with")
+
 
 def setup(bot):
     bot.add_cog(Interaction(bot))
