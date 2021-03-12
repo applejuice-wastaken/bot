@@ -126,11 +126,12 @@ class RelativeMemberConverter(MemberConverter):
                             if many == 0:
                                 if len(message.mentions) == 1:
                                     return await self.query_member_by_id(ctx.bot, ctx.guild, message.mentions[0].id)
-                                else:
-                                    raw_mentions = message.raw_mentions
-                                    if len(raw_mentions) == 1:
-                                        return await self.query_member_by_id(ctx.bot, ctx.guild, raw_mentions[0])
-                                    raise TooManyMessageMentions
+
+                                raw_mentions = message.raw_mentions
+                                if len(raw_mentions) == 1:
+                                    return await self.query_member_by_id(ctx.bot, ctx.guild, raw_mentions[0])
+
+                                raise TooManyMessageMentions
                 else:
                     raise RelativeConversionNotFound
 
