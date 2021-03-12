@@ -21,22 +21,29 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             ctx.bot.get_cog("Uninvoke").create_unload(ctx.message, unload)
 
     async def make_response(self, ctx, *users: discord.Member):
+        self: Interaction
         users: List[discord.Member]
 
-        if not self.user_accepts(ctx.author, name):
+        if not self.user_accepts(ctx.author, name, "thing"):
             return await ctx.send(f"But you don't like that")
 
         if not users:
-            return await ctx.send(f"{ctx.author.mention} {action} the air...?", allowed_mentions=discord.AllowedMentions.none())
+            return await ctx.send(f"{ctx.author.name} {action} the air...?", allowed_mentions=discord.AllowedMentions.none())
 
         allowed = []
         role_denied = []
         condition_denied = []
 
         for user in users:
-            mention = "themselves" if user == ctx.author else user.mention
+            if user == ctx.author:
+                mention = "themselves"
+            elif user == ctx.bot.user:
+                mention = "me"
+            else:
+                mention = user.name
 
-            if self.user_accepts(user, name):
+            # noinspection PyTypeChecker
+            if self.user_accepts(user, name, "thing"):
                 if condition(ctx.author, user):
                     allowed.append(mention)
                 else:
@@ -48,7 +55,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
         disallowed_fragments = []
 
         if allowed:
-            acted = f"{ctx.author.mention} {action} {human_join_list(allowed)}"
+            acted = f"{ctx.author.name} {action} {human_join_list(allowed)}"
 
         if role_denied:
             disallowed_fragments.append(f"{human_join_list(role_denied)} did not allow them to do this")
@@ -123,22 +130,25 @@ class Interaction(commands.Cog):
 
         self.command_cache = deque(maxlen=100)
 
-    def user_accepts(self, member, action):
-        cached = discord.utils.get(self.command_cache, guild_id=member.guild.id, member_id=member.id, action=action)
+    def user_accepts(self, member, *actions):
+        for action in actions:
+            cached = discord.utils.get(self.command_cache, guild_id=member.guild.id, member_id=member.id, action=action)
 
-        if cached is None:
-            role = discord.utils.get(member.roles, name=f"no {action}")
+            if cached is None:
+                role = discord.utils.get(member.roles, name=f"no {action}")
 
-            accepts = role is None
+                allowed = role is None
 
-            self.command_cache.append(CacheRecord(guild_id=member.guild.id,
-                                                  member_id=member.id,
-                                                  action=action,
-                                                  value=accepts))
+                self.command_cache.append(CacheRecord(guild_id=member.guild.id,
+                                                      member_id=member.id,
+                                                      action=action,
+                                                      value=allowed))
+            else:
+                allowed = cached.value
 
-            return accepts
-        else:
-            return cached.value
+            if not allowed:
+                return False
+        return True
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
