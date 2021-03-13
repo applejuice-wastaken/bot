@@ -125,6 +125,16 @@ EXPONENTIAL_REGEX = re.compile(r"^(m?)(\^+)$")
 
 class RelativeMemberConverter(MemberConverter):
     async def convert(self, ctx, argument):
+        cache = getattr(ctx, "_cache_relative_member_converter", {})
+        if argument in cache:
+            return cache[argument]
+        else:
+            converted = await self.do_convert(ctx, argument)
+            cache[argument] = converted
+            ctx._cache_relative_member_converter = cache
+            return converted
+
+    async def do_convert(self, ctx, argument):
         if argument == "me":
             return ctx.author
 
