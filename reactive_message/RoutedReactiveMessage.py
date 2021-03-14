@@ -38,6 +38,8 @@ class Page(ABC):
     async def on_enter(self, from_page):
         pass
 
+    async def on_route_change(self):
+        pass
 
 class Route:
     def __init__(self):
@@ -57,6 +59,7 @@ class Route:
         self.fallback_var = var
         self.fallback = route
 
+    @chain
     def add_vararg(self, var, route: Type[Page]):
         self.vararg = route
         self.vararg_var = var
@@ -91,9 +94,6 @@ class RoutedReactiveMessage(ReactiveMessage):
         args = {}
 
         for idx, particle in enumerate(particles):
-            if particle == "":
-                continue
-
             if isinstance(current, Route):
                 for route_name, route in current.routes.items():
                     if particle == route_name:
@@ -110,6 +110,13 @@ class RoutedReactiveMessage(ReactiveMessage):
                         args[current.vararg_var] = ".".join(particles[idx:])
                         current = current.vararg
                         break
+            else:
+                if self.ERROR_PAGE is None:
+                    raise RuntimeError("Route is invalid")
+                else:
+                    current = self.ERROR_PAGE
+
+                return current, args
 
         if isinstance(current, Route):
             if current.base_page is None:
@@ -128,6 +135,8 @@ class RoutedReactiveMessage(ReactiveMessage):
 
         if isinstance(self._current_page, route_page):
             self._current_page.args = route_args
+
+            await self._current_page.on_route_change()
 
         else:
             if self._current_page is not None:
