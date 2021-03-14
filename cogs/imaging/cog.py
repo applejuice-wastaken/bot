@@ -9,6 +9,7 @@ from PIL import Image
 
 import aiohttp
 from discord.ext import commands
+from discord.ext.commands import Converter
 
 from .flag_retreiver import url_from_name
 
@@ -32,28 +33,38 @@ def asset_path(name):
     self_dir = os.path.dirname(__file__)
     return os.path.join(self_dir, 'assets', name)
 
+class Flag:
+    def __init__(self, url, name, provider):
+        self.provider = provider
+        self.name = name
+        self.url = url
+
+    @classmethod
+    async def convert(cls, ctx, argument):
+        if ":" in argument:
+            chunks = argument.split(":")
+            ret = await url_from_name(chunks[1], chunks[0])
+        else:
+            ret = await url_from_name(argument)
+
+        if ret is None:
+            raise commands.BadArgument("Flag not found.")
+        else:
+            flag_url, flag_name, provider = ret
+            return Flag(url=flag_url, name=flag_name, provider=provider)
+
+
 def generic_flag_command(name):
     def wrapper(func):
         func = image_as_io(func)
 
         @commands.command(name=name)
-        async def command(self, ctx, *, label_name):
-            if ":" in label_name:
-                chunks = label_name.split(":")
-                ret = await url_from_name(chunks[1], chunks[0])
-            else:
-                ret = await url_from_name(label_name)
-
-            if ret is None:
-                await ctx.send("I don't know what is that")
-            else:
-                flag_url, flag_name, descriptor = ret
-                await ctx.send(f"{descriptor} gave me a `{flag_name}` flag, "
-                               f"unsure if that's what you want but I'll render it anyways")
-                flag_bin = await retrieve(flag_url)
-                user_bin = await ctx.author.avatar_url_as().read()
-                io = await self.loop.run_in_executor(self.process_pool, partial(func, self, user_bin, flag_bin))
-                await ctx.send(file=discord.File(io, "output.png"))
+        async def command(self, ctx, *, flag_name: Flag):
+            await ctx.send(f"using `{flag_name.name}` flag provided by {flag_name.provider}")
+            flag_bin = await retrieve(flag_name.url)
+            user_bin = await ctx.author.avatar_url_as().read()
+            io = await self.loop.run_in_executor(self.process_pool, partial(func, self, user_bin, flag_bin))
+            await ctx.send(file=discord.File(io, "output.png"))
 
         return command
 
@@ -92,7 +103,7 @@ class Imaging(commands.Cog):
         if retry_after:
             raise commands.CommandOnCooldown(10, retry_after)
 
-    @generic_flag_command("flag")
+    @generic_flag_command("circle")
     def flag_executor(self, user_bin, flag_bin):
         user = Image.open(BytesIO(user_bin))
         flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
@@ -112,5 +123,8 @@ class Imaging(commands.Cog):
 
         return output
 
-def setup(bot):
-    bot.add_cog(Imaging(bot))
+    @commands.command(name="flag")
+    async def show_flag_only(self, ctx, *, flag_name: Flag):
+        embed = discord.Embed()
+        embed.set_image(url=flag_name.url)
+        await ctx.send(f"`{flag_name.name}`, provided by {flag_name.provider}", embed=embed)
