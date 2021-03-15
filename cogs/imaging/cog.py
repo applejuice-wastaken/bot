@@ -53,17 +53,44 @@ class Flag:
             flag_url, flag_name, provider = ret
             return Flag(url=flag_url, name=flag_name, provider=provider)
 
+class BadImageInput(Exception):
+    pass
+
 
 def generic_flag_command(name):
     def wrapper(func):
         func = image_as_io(func)
 
-        async def command(self, ctx, *, flag_name: Flag):
-            await ctx.send(f"using `{flag_name.name}` flag provided by {flag_name.provider}")
-            flag_bin = await retrieve(flag_name.url)
+        async def command(self, ctx, *, flag: Flag):
+            await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
+
+            async with aiohttp.request("GET", flag.url) as response:
+                flag_bin = await response.read()
+                content_type = response.content_type
+
             user_bin = await ctx.author.avatar_url_as().read()
-            io = await self.loop.run_in_executor(self.process_pool, partial(func, self, user_bin, flag_bin))
-            await ctx.send(file=discord.File(io, "output.png"))
+
+            try:
+                io = await self.loop.run_in_executor(self.process_pool, partial(opener, self, user_bin, flag_bin))
+            except BadImageInput:
+                await ctx.send(f"This flag is of type `{content_type}`, which is unsupported")
+            else:
+                await ctx.send(file=discord.File(io, "output.png"))
+
+        def opener(self, user_bin, flag_bin):
+            user = Image.open(BytesIO(user_bin))
+            flag = None
+            try:
+                flag = Image.open(BytesIO(flag_bin))
+            except Image.UnidentifiedImageError as e:
+                raise BadImageInput from e
+            else:
+                func(self, user, flag)
+            finally:
+                user.close()
+
+                if flag is not None:
+                    flag.close()
 
         command.__doc__ = func.__doc__
 
@@ -105,10 +132,9 @@ class Imaging(commands.Cog):
             raise commands.CommandOnCooldown(bucket.per, retry_after)
 
     @generic_flag_command("circle")
-    def flag_executor(self, user_bin, flag_bin):
+    def flag_executor(self, user, flag):
         """retrieves a flag and returns your profile picture with it in the edge"""
-        user = Image.open(BytesIO(user_bin))
-        flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
+        flag = center_resize(flag, *user.size)
         edge = Image.open(asset_path("profile_edge.png")).resize(user.size).convert('L')
 
         output = Image.composite(flag, user, edge)
@@ -116,10 +142,10 @@ class Imaging(commands.Cog):
         return output
 
     @generic_flag_command("overlay")
-    def overlay_executor(self, user_bin, flag_bin):
+    def overlay_executor(self, user, flag):
         """retrieves a flag and overlays it over your profile picture"""
-        user = Image.open(BytesIO(user_bin))
-        flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
+        user = Image.open(user)
+        flag = center_resize(flag, *user.size)
         mask = Image.new('L', user.size, 128)
 
         output = Image.composite(flag, user, mask)
@@ -127,15 +153,21 @@ class Imaging(commands.Cog):
         return output
 
     @commands.command(name="flag")
-    async def show_flag_only(self, ctx, *, flag_name: Flag):
+    async def show_flag_only(self, ctx, *, flag: Flag):
         """shows a flag"""
-        flag_bin = await retrieve(flag_name.url)
+        async with aiohttp.request("GET", flag.url) as response:
+            flag_bin = await response.read()
+            content_type = response.content_type
 
-        pix = await self.loop.run_in_executor(self.process_pool, partial(self.find_mean_color, flag_bin))
-
-        embed = discord.Embed(color=discord.Color.from_rgb(*pix))
-        embed.set_image(url=flag_name.url)
-        await ctx.send(f"`{flag_name.name}`, provided by {flag_name.provider}", embed=embed)
+        try:
+            pix = await self.loop.run_in_executor(self.process_pool, partial(self.find_mean_color, flag_bin))
+        except Image.UnidentifiedImageError:
+            await ctx.send(f"`{flag.name}`, provided by {flag.provider}, "
+                           f"is of type `{content_type}`, which is unsupported")
+        else:
+            embed = discord.Embed(color=discord.Color.from_rgb(*pix))
+            embed.set_image(url=flag.url)
+            await ctx.send(f"`{flag.name}`, provided by {flag.provider}", embed=embed)
 
     def find_mean_color(self, flag_bin):
         img = Image.open(BytesIO(flag_bin)).convert("RGB")
