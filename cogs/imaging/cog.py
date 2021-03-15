@@ -95,13 +95,13 @@ class Imaging(commands.Cog):
 
         self.process_pool = ThreadPoolExecutor(2)
 
-        self.cooldown_mapping = commands.CooldownMapping.from_cooldown(1, 10.0, commands.BucketType.user)
+        self.cooldown_mapping = commands.CooldownMapping.from_cooldown(1, 5.0, commands.BucketType.user)
 
     async def cog_before_invoke(self, ctx):
         bucket = self.cooldown_mapping.get_bucket(ctx.message)
         retry_after = bucket.update_rate_limit()
         if retry_after:
-            raise commands.CommandOnCooldown(10, retry_after)
+            raise commands.CommandOnCooldown(bucket.per, retry_after)
 
     @generic_flag_command("circle")
     def flag_executor(self, user_bin, flag_bin):
