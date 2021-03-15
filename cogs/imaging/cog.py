@@ -144,7 +144,6 @@ class Imaging(commands.Cog):
     @generic_flag_command("overlay")
     def overlay_executor(self, user, flag):
         """retrieves a flag and overlays it over your profile picture"""
-        user = Image.open(user)
         flag = center_resize(flag, *user.size)
         mask = Image.new('L', user.size, 128)
 
