@@ -6,6 +6,8 @@ import difflib
 
 from .abc import FlagRetriever
 
+import urllib.parse
+
 
 class LGBTFlagRetriever(FlagRetriever):
     @property
@@ -14,7 +16,8 @@ class LGBTFlagRetriever(FlagRetriever):
 
     async def url_from_name(self, name) -> typing.Optional[typing.Tuple[str, str]]:
         async with aiohttp.request("GET", f"https://lgbta.wikia.org/api.php?action=query&"
-                                          f"list=search&srsearch={name}&format=json") as search_response:
+                                          f"list=search&srsearch={urllib.parse.quote(name)}"
+                                          f"&format=json") as search_response:
             json_content = await search_response.json()
             pages = json_content["query"]["search"]
 
