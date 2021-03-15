@@ -85,7 +85,7 @@ def generic_flag_command(name):
             except Image.UnidentifiedImageError as e:
                 raise BadImageInput from e
             else:
-                func(self, user, flag)
+                return func(self, user, flag)
             finally:
                 user.close()
 
