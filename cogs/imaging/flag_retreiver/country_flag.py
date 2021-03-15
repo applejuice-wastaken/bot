@@ -35,10 +35,13 @@ class CountryFlagRetriever(FlagRetriever):
     async def url_from_name(self, name) -> typing.Optional[typing.Tuple[str, str]]:
         name = name.lower()
         codes = await self.get_codes()
-        match = difflib.get_close_matches(name, codes.values(), 1, 0.8)
-        if match:
-            code = await self.code_from_name(match[0])
-            return f"https://flagcdn.com/w320/{code}.png", match[0]
+        if name in codes:
+            return f"https://flagcdn.com/w320/{name}.png", codes[name]
+        else:
+            match = difflib.get_close_matches(name, codes.values(), 1, 0.8)
+            if match:
+                code = await self.code_from_name(match[0])
+                return f"https://flagcdn.com/w320/{code}.png", match[0]
 
     def __str__(self):
         return "flagcdn"
