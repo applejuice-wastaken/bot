@@ -5,7 +5,7 @@ from io import BytesIO
 import os
 
 import discord
-from PIL import Image
+from PIL import Image, ImageStat
 
 import aiohttp
 from discord.ext import commands
@@ -125,6 +125,16 @@ class Imaging(commands.Cog):
 
     @commands.command(name="flag")
     async def show_flag_only(self, ctx, *, flag_name: Flag):
-        embed = discord.Embed()
+        flag_bin = await retrieve(flag_name.url)
+
+        pix = await self.loop.run_in_executor(self.process_pool, partial(self.find_mean_color, flag_bin))
+
+        embed = discord.Embed(color=discord.Color.from_rgb(*pix))
         embed.set_image(url=flag_name.url)
         await ctx.send(f"`{flag_name.name}`, provided by {flag_name.provider}", embed=embed)
+
+    def find_mean_color(self, flag_bin):
+        img = Image.open(BytesIO(flag_bin)).convert("RGB")
+        stat = ImageStat.Stat(img)
+
+        return [int(i) for i in stat.median]
