@@ -16,6 +16,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
     custom_function = None
 
     async def command(self, ctx, *users: RelativeMemberConverter):
+
         message = await make_response(self, ctx, *users)
 
         if message is not None:
@@ -23,6 +24,8 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
                 await message.delete()
 
             ctx.bot.get_cog("Uninvoke").create_unload(ctx.message, unload)
+
+    command.__doc__ = f"executes a {name} action towards selected users, if allowed"
 
     async def make_response(self, ctx, *users: discord.Member):
         def transform(u):

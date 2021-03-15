@@ -58,7 +58,6 @@ def generic_flag_command(name):
     def wrapper(func):
         func = image_as_io(func)
 
-        @commands.command(name=name)
         async def command(self, ctx, *, flag_name: Flag):
             await ctx.send(f"using `{flag_name.name}` flag provided by {flag_name.provider}")
             flag_bin = await retrieve(flag_name.url)
@@ -66,7 +65,9 @@ def generic_flag_command(name):
             io = await self.loop.run_in_executor(self.process_pool, partial(func, self, user_bin, flag_bin))
             await ctx.send(file=discord.File(io, "output.png"))
 
-        return command
+        command.__doc__ = func.__doc__
+
+        return commands.command(name=name)(command)
 
     return wrapper
 
@@ -105,6 +106,7 @@ class Imaging(commands.Cog):
 
     @generic_flag_command("circle")
     def flag_executor(self, user_bin, flag_bin):
+        """retrieves a flag and returns your profile picture with it in the edge"""
         user = Image.open(BytesIO(user_bin))
         flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
         edge = Image.open(asset_path("profile_edge.png")).resize(user.size).convert('L')
@@ -115,6 +117,7 @@ class Imaging(commands.Cog):
 
     @generic_flag_command("overlay")
     def overlay_executor(self, user_bin, flag_bin):
+        """retrieves a flag and overlays it over your profile picture"""
         user = Image.open(BytesIO(user_bin))
         flag = center_resize(Image.open(BytesIO(flag_bin)), *user.size)
         mask = Image.new('L', user.size, 128)
@@ -125,6 +128,7 @@ class Imaging(commands.Cog):
 
     @commands.command(name="flag")
     async def show_flag_only(self, ctx, *, flag_name: Flag):
+        """shows a flag"""
         flag_bin = await retrieve(flag_name.url)
 
         pix = await self.loop.run_in_executor(self.process_pool, partial(self.find_mean_color, flag_bin))

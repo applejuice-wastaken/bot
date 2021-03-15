@@ -8,6 +8,7 @@ class Fun(commands.Cog):
 
     @commands.command(name="doggo")
     async def dog(self, ctx):
+        """sends a message"""
         m = await ctx.send("doggo")
         self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: m.delete())
 
@@ -22,6 +23,7 @@ class Fun(commands.Cog):
 
     @commands.command(name="noping")
     async def no_ping(self, ctx, member: discord.Member):
+        """sends a message mentioning member without pinging"""
         m = await ctx.send(f"gotcha: {member.mention}", allowed_mentions=discord.AllowedMentions(users=False))
         self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: m.delete())
 

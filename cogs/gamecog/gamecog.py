@@ -41,9 +41,17 @@ class GameCog(commands.Cog):
 
         self.lobbies.append(GameLobby(self.bot, ctx.channel, games[game_name], ctx.author, self))
 
+    @commands.guild_only()
+    @game.command()
+    async def list(self, ctx):
+        """returns all the games registered"""
+        embed = discord.Embed(title="Games", description="\n".join(games.keys()))
+        await ctx.send(embed=embed)
+
     @commands.dm_only()
     @commands.command(aliases=("l",))
     async def leave(self, ctx):
+        """leaves the current games"""
         if ctx.author.id in self.user_state and not isinstance(self.user_state[ctx.author.id], str):
             # user is in a game
 

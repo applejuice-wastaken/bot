@@ -43,6 +43,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
     @commands.command()
     async def purge_until(self, ctx, message_id: int):
+        """purges messages until message_id"""
         messages = await ctx.channel.history(limit=100, after=discord.Object(message_id)).flatten()
 
         await self.purge_action(ctx, messages)
@@ -52,6 +53,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
     @commands.command()
     async def purge(self, ctx, quantity: int):
+        """purges an amount of messages sorted by newest"""
         messages = await ctx.channel.history(limit=quantity).flatten()
 
         await self.purge_action(ctx, messages)

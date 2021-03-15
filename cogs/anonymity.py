@@ -43,7 +43,7 @@ class Anonymity(commands.Cog):
     @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.command(name="atalk")
     async def talk(self, ctx, channel_id: int, *, content):
-        print(ctx.me)
+        """sends an anonymous message to channel_id with respective content"""
         channel = self.bot.get_channel(channel_id)
         if channel is None:
             await ctx.send("That channel does not exist")
