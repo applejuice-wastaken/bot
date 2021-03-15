@@ -159,18 +159,21 @@ class RelativeMemberConverter(MemberConverter):
                             last = message.author
                             many -= 1
                             if many == 0:
-                                return await self.query_member_by_id(ctx.bot, ctx.guild, message.author.id)
+                                return await self.query_member_by_id(ctx.bot, ctx.guild, message.author.id) \
+                                       or message.author
 
                     elif flag == "m":
                         if message.mentions:
                             many -= 1
                             if many == 0:
                                 if len(message.mentions) == 1:
-                                    return await self.query_member_by_id(ctx.bot, ctx.guild, message.mentions[0].id)
+                                    return await self.query_member_by_id(ctx.bot, ctx.guild, message.mentions[0].id) \
+                                       or message.author
 
                                 raw_mentions = message.raw_mentions
                                 if len(raw_mentions) == 1:
-                                    return await self.query_member_by_id(ctx.bot, ctx.guild, raw_mentions[0])
+                                    return await self.query_member_by_id(ctx.bot, ctx.guild, raw_mentions[0]) \
+                                       or message.author
 
                                 raise TooManyMessageMentions
                 else:
@@ -205,6 +208,9 @@ class Interaction(commands.Cog):
         self.command_cache = deque(maxlen=100)
 
     def user_accepts(self, member, *actions):
+        if isinstance(member, discord.User) or member.discriminator == "0000":
+            return True
+
         for action in actions:
             cached = discord.utils.get(self.command_cache, guild_id=member.guild.id, member_id=member.id, action=action)
 
