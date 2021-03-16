@@ -257,6 +257,7 @@ class Interaction(commands.Cog):
     interaction_command_factory("attack", "attacks", operator.ne)
     interaction_command_factory("boop", "boops")
     interaction_command_factory("cuddle", "cuddles with")
+    interaction_command_factory("cake", "gives cake to")
 
 
 def setup(bot):
