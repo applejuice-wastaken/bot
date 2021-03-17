@@ -96,4 +96,4 @@ if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.dm_reactions = True
 
-    DiscordBot(prefix, case_insensitive=True, intents=intents).run(token)
+    DiscordBot(prefix, help_command=commands.MinimalHelpCommand(), case_insensitive=True, intents=intents).run(token)
