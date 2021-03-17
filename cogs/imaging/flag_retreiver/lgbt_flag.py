@@ -29,7 +29,8 @@ class LGBTFlagRetriever(FlagRetriever):
                                                   f"wisId={first_page_id}&format=json") as image_response:
                     json_content = await image_response.json()
 
-                    return json_content["image"]["imageserving"], pages[0]["title"]
+                    if "error" not in json_content and "image" in json_content:
+                        return json_content["image"]["imageserving"], pages[0]["title"]
 
         return None
 
