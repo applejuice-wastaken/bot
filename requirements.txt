@@ -5,3 +5,4 @@ firebase-admin
 aiohttp
 Pillow
 async_lru
+aiofiles
