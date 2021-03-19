@@ -1,6 +1,8 @@
 import abc
 import typing
 
+from cogs.imaging.flag_retriever.flag import Flag
+
 
 class FlagRetriever(abc.ABC):
     @abc.abstractmethod
@@ -13,5 +15,5 @@ class FlagRetriever(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def url_from_name(self, name) -> typing.Optional[typing.Tuple[str, str]]:
+    async def get_flag(self, name) -> typing.Optional[Flag]:
         pass

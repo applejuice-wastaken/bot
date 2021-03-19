@@ -4,6 +4,7 @@ import aiohttp
 
 import difflib
 
+from . import Flag
 from .abc import FlagRetriever
 
 
@@ -32,16 +33,16 @@ class CountryFlagRetriever(FlagRetriever):
         return self._codes_inverted[name]
 
     # noinspection PyTypeChecker
-    async def url_from_name(self, name) -> typing.Optional[typing.Tuple[str, str]]:
+    async def get_flag(self, name) -> typing.Optional[Flag]:
         name = name.lower()
         codes = await self.get_codes()
         if name in codes:
-            return f"https://flagcdn.com/w320/{name}.png", codes[name]
+            return Flag(f"https://flagcdn.com/w320/{name}.png", codes[name], str(self), is_remote=True)
         else:
             match = difflib.get_close_matches(name, codes.values(), 1, 0.8)
             if match:
                 code = await self.code_from_name(match[0])
-                return f"https://flagcdn.com/w320/{code}.png", match[0]
+                return Flag(f"https://flagcdn.com/w320/{code}.png", match[0], str(self), is_remote=True)
 
     def __str__(self):
         return "flagcdn"

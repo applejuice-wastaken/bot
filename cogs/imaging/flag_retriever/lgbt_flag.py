@@ -4,6 +4,7 @@ import aiohttp
 
 import difflib
 
+from . import Flag
 from .abc import FlagRetriever
 
 import urllib.parse
@@ -14,7 +15,7 @@ class LGBTFlagRetriever(FlagRetriever):
     def schema(self):
         return "lgbt"
 
-    async def url_from_name(self, name) -> typing.Optional[typing.Tuple[str, str]]:
+    async def get_flag(self, name) -> typing.Optional[Flag]:
         async with aiohttp.request("GET", f"https://lgbta.wikia.org/api.php?action=query&"
                                           f"list=search&srsearch={urllib.parse.quote(name)}"
                                           f"&format=json") as search_response:
@@ -30,7 +31,7 @@ class LGBTFlagRetriever(FlagRetriever):
                     json_content = await image_response.json()
 
                     if "error" not in json_content and "image" in json_content:
-                        return json_content["image"]["imageserving"], pages[0]["title"]
+                        return Flag(json_content["image"]["imageserving"], pages[0]["title"], str(self), is_remote=True)
 
         return None
 
