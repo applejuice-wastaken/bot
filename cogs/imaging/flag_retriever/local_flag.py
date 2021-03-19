@@ -59,7 +59,7 @@ class LocalFlagRetriever(FlagRetriever):
     async def get_flag(self, name) -> typing.Optional[Flag]:
         match = difflib.get_close_matches(name, self.files.keys(), 1, 0.8)
         if match:
-            return Flag(folder_path(self.files[match[0]]), match[0], str(self), is_remote=False)
+            return Flag(self.files[match[0]], match[0], str(self), is_remote=False)
 
     def __str__(self):
         return "local storage"
