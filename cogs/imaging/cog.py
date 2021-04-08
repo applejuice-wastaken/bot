@@ -118,7 +118,16 @@ def generic_flag_command(name):
                 await ctx.send(file=discord.File(io, "output.png"))
 
         async def mixin(self, ctx, *flags: Flag):
+            if len(flags) == 0:
+                await ctx.send(f"no flags provided")
+                return
+
             listing = "\n".join(f"    `{flag.name}` flag provided by {flag.provider}" for flag in flags)
+
+            if len(flags) < 2:
+                await ctx.send(f"insufficient flags:\n{listing}")
+                return
+
             await ctx.send(f"using:\n{listing}")
 
             flags_bin = []
