@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from io import BytesIO
@@ -8,9 +9,14 @@ import discord
 from PIL import Image, ImageStat
 
 import aiohttp
+from PIL.ImageDraw import ImageDraw
 from discord.ext import commands
 
 from .flag_retriever.flag import Flag
+
+import math
+
+import colorsys
 
 
 async def retrieve(url):
@@ -37,61 +43,136 @@ class BadImageInput(Exception):
     pass
 
 
+def open_flags(*flags_bin):
+    ret = []
+
+    try:
+        for flag in flags_bin:
+            ret.append(Image.open(BytesIO(flag)))
+    except Image.UnidentifiedImageError as e:
+        raise BadImageInput from e
+
+    return ret[0] if len(ret) == 1 else ret
+
+def stitch_flags(size, *flags: Image):
+    mask = Image.new("L", size, 0)
+    overlay = Image.new("RGBA", size, (0, 0, 0, 0))
+    ret = Image.new("RGB", size, (0, 0, 0))
+
+    drawer = ImageDraw(mask)
+    overlay_drawer = ImageDraw(overlay)
+
+    step_size = math.pi * 2 / len(flags)
+    point_offset = max(size) * 2
+
+    for idx, flag in enumerate(flags):
+        start = (math.cos(idx * step_size) * point_offset + size[0] / 2,
+                 math.sin(idx * step_size) * point_offset + size[1] / 2)
+
+        middle = (math.cos((idx + 0.5) * step_size) * point_offset + size[0] / 2,
+                  math.sin((idx + 0.5) * step_size) * point_offset + size[1] / 2)
+
+        end = (math.cos((idx + 1) * step_size) * point_offset + size[0] / 2,
+               math.sin((idx + 1) * step_size) * point_offset + size[1] / 2)
+
+        # quick and dirty way of drawing only a part of the mask
+
+        drawer.polygon((size[0] / 2, size[1] / 2) + start + middle + end, 255)
+
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 0, 0, 255), 10)
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + end, (255, 0, 0, 255), 10)
+
+        flag = center_resize(flag, *size)
+
+        ret.paste(flag, mask=mask)
+
+        drawer.rectangle((0, 0) + mask.size, 0)  # clear
+
+    ret.paste(overlay, mask=overlay)
+
+    return ret
+
+
 def generic_flag_command(name):
     def wrapper(func):
         func = image_as_io(func)
 
         async def command(self, ctx, *, flag: Flag):
+            print("normal")
+            self: Imaging
+
             await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
 
             flag_bin = await flag.read()
             user_bin = await ctx.author.avatar_url_as().read()
 
             try:
-                io = await self.loop.run_in_executor(self.process_pool, partial(opener, self, user_bin, flag_bin))
+                flag = await self.execute(open_flags, flag_bin)
+                user = await self.execute(open_flags, user_bin)
+
+                io = await self.execute(func, self, user, flag)
+
             except BadImageInput:
                 await ctx.send(f"This flag type is unsupported")
             else:
                 await ctx.send(file=discord.File(io, "output.png"))
 
-        def opener(self, user_bin, flag_bin):
-            user = Image.open(BytesIO(user_bin))
-            flag = None
-            try:
-                flag = Image.open(BytesIO(flag_bin))
-            except Image.UnidentifiedImageError as e:
-                raise BadImageInput from e
-            else:
-                return func(self, user, flag)
-            finally:
-                user.close()
+        async def mixin(self, ctx, *flags: Flag):
+            listing = "\n".join(f"    `{flag.name}` flag provided by {flag.provider}" for flag in flags)
+            await ctx.send(f"using:\n{listing}")
 
-                if flag is not None:
-                    flag.close()
+            flags_bin = []
+            for flag in flags:
+                flags_bin.append(await flag.read())
+
+            user_bin = await ctx.author.avatar_url_as().read()
+
+            try:
+                flags = await self.execute(open_flags, *flags_bin)
+                user = await self.execute(open_flags, user_bin)
+
+                stitched_flag = await self.execute(stitch_flags, user.size, *flags)
+
+                io = await self.execute(func, self, user, stitched_flag)
+
+            except BadImageInput:
+                await ctx.send(f"This flag type is unsupported")
+            else:
+                await ctx.send(file=discord.File(io, "output.png"))
 
         command.__doc__ = func.__doc__
+        mixin.__doc__ = func.__doc__
 
-        return commands.command(name=name)(command)
+        c = commands.group(name=name, invoke_without_command=True)(command)
+
+        inspect.currentframe().f_back.f_locals[f"_command_{name}_mixin"] = c.command(name="mixin")(mixin)
+
+        return c
 
     return wrapper
 
 def center_resize(target: Image.Image, width, height):
-    if target.width < target.height:
-        # width is the smallest side
-        new_width = width
-        x = 0
-        new_height = target.height * (new_width / target.width)
-        y = (new_height - height) / 2
-    else:
-        # width is the smallest side
-        new_height = height
-        y = 0
-        new_width = target.width * (new_height / target.height)
-        x = (new_width - width) / 2
+    scale = max(width / target.width, height / target.height)
+
+    new_width = target.width * scale
+    new_height = target.height * scale
+
+    x = (new_width - width) / 2
+    y = (new_height - height) / 2
 
     box = [int(i) for i in (x, y, x + width, y + height)]
 
     return target.resize((int(new_width), int(new_height))).crop(box)
+
+
+def find_mean_color(image):
+    if not isinstance(image, Image.Image):
+        image = Image.open(BytesIO(image)).convert("RGB")
+
+    stat = ImageStat.Stat(image)
+
+    return [int(i) for i in stat.median]
+
 
 class Imaging(commands.Cog):
     def __init__(self, bot):
@@ -134,7 +215,7 @@ class Imaging(commands.Cog):
         flag_bin = await flag.read()
 
         try:
-            pix = await self.loop.run_in_executor(self.process_pool, partial(self.find_mean_color, flag_bin))
+            pix = await self.loop.run_in_executor(self.process_pool, partial(find_mean_color, flag_bin))
         except Image.UnidentifiedImageError:
             await ctx.send(f"`{flag.name}` type, provided by {flag.provider}, is unsupported")
         else:
@@ -148,8 +229,5 @@ class Imaging(commands.Cog):
                 e.set_image(url="attachment://v.png")
                 await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
 
-    def find_mean_color(self, flag_bin):
-        img = Image.open(BytesIO(flag_bin)).convert("RGB")
-        stat = ImageStat.Stat(img)
-
-        return [int(i) for i in stat.median]
+    def execute(self, func, *args, **kwargs):
+        return self.loop.run_in_executor(self.process_pool, partial(func, *args, **kwargs))
