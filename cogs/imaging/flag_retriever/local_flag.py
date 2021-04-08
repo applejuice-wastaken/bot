@@ -57,7 +57,7 @@ class LocalFlagRetriever(FlagRetriever):
 
     # noinspection PyTypeChecker
     async def get_flag(self, name) -> typing.Optional[Flag]:
-        match = difflib.get_close_matches(name, self.files.keys(), 1, 0.8)
+        match = difflib.get_close_matches(name, self.files.keys(), 1, 0.9)
         if match:
             return Flag(self.files[match[0]], match[0], str(self), is_remote=False)
 
