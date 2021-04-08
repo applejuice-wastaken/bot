@@ -92,6 +92,14 @@ def stitch_flags(size, *flags: Image):
 
         drawer.rectangle((0, 0) + mask.size, 0)  # clear
 
+    # fixing center part where the lines just overlap
+
+    for idx in range(len(flags)):
+        point = (math.cos(idx * step_size - angle_offset) * point_offset + size[0] / 2,
+                 math.sin(idx * step_size - angle_offset) * point_offset + size[1] / 2)
+
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + point, (0, 0, 0, 255), 5)
+
     ret.paste(overlay, mask=overlay)
 
     return ret
