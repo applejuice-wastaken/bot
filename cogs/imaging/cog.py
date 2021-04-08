@@ -64,16 +64,17 @@ def stitch_flags(size, *flags: Image):
 
     step_size = math.pi * 2 / len(flags)
     point_offset = max(size) * 2
+    angle_offset = -math.pi / 2  # begin at the top
 
     for idx, flag in enumerate(flags):
-        start = (math.cos(idx * step_size) * point_offset + size[0] / 2,
-                 math.sin(idx * step_size) * point_offset + size[1] / 2)
+        start = (math.cos(idx * step_size - angle_offset) * point_offset + size[0] / 2,
+                 math.sin(idx * step_size - angle_offset) * point_offset + size[1] / 2)
 
-        middle = (math.cos((idx + 0.5) * step_size) * point_offset + size[0] / 2,
-                  math.sin((idx + 0.5) * step_size) * point_offset + size[1] / 2)
+        middle = (math.cos((idx + 0.5) * step_size - angle_offset) * point_offset + size[0] / 2,
+                  math.sin((idx + 0.5) * step_size - angle_offset) * point_offset + size[1] / 2)
 
-        end = (math.cos((idx + 1) * step_size) * point_offset + size[0] / 2,
-               math.sin((idx + 1) * step_size) * point_offset + size[1] / 2)
+        end = (math.cos((idx + 1) * step_size - angle_offset) * point_offset + size[0] / 2,
+               math.sin((idx + 1) * step_size - angle_offset) * point_offset + size[1] / 2)
 
         # quick and dirty way of drawing only a part of the mask
 
