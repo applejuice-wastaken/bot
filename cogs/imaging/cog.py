@@ -80,8 +80,11 @@ def stitch_flags(size, *flags: Image):
 
         drawer.polygon((size[0] / 2, size[1] / 2) + start + middle + end, 255)
 
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 0, 0, 255), 10)
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + end, (255, 0, 0, 255), 10)
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 255, 255, 255), 15)
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + end, (255, 255, 255, 255), 15)
+
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (0, 0, 0, 255), 5)
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + end, (0, 0, 0, 255), 5)
 
         flag = center_resize(flag, *size)
 
