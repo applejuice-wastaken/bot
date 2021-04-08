@@ -81,10 +81,6 @@ def stitch_flags(size, *flags: Image):
         drawer.polygon((size[0] / 2, size[1] / 2) + start + middle + end, 255)
 
         overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 255, 255, 255), 15)
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + end, (255, 255, 255, 255), 15)
-
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (0, 0, 0, 255), 5)
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + end, (0, 0, 0, 255), 5)
 
         flag = center_resize(flag, *size)
 
@@ -92,7 +88,7 @@ def stitch_flags(size, *flags: Image):
 
         drawer.rectangle((0, 0) + mask.size, 0)  # clear
 
-    # fixing center part where the lines just overlap
+    # draw black center
 
     for idx in range(len(flags)):
         point = (math.cos(idx * step_size - angle_offset) * point_offset + size[0] / 2,
