@@ -80,7 +80,7 @@ def stitch_flags(size, *flags: Image):
 
         drawer.polygon((size[0] / 2, size[1] / 2) + start + middle + end, 255)
 
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 255, 255, 255), 15)
+        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 255, 255, 255), 11)  # odd number on purpose
 
         flag = center_resize(flag, *size)
 
