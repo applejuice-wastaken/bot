@@ -279,5 +279,22 @@ class Imaging(commands.Cog):
             e.set_image(url="attachment://v.png")
             await ctx.send(f"using:\n{listing}", file=file, embed=e)
 
+    @commands.command(name="avatar", aliases=("pfp",))
+    async def avatar(self, ctx):
+        asset = ctx.author.avatar_url_as()
+        user_bin = await asset.read()
+
+        try:
+            pix = await self.execute(find_mean_color, user_bin)
+        except BadImageInput:
+            # given that it's from discord, it should not come here
+            # because pillow would theoretically support it
+            pix = (0, 0, 0)
+
+        embed = discord.Embed(color=discord.Color.from_rgb(*pix))
+        embed.set_image(url=str(asset))
+        await ctx.send(f"{ctx.author.mention}'s profile picture", embed=embed,
+                       mention_author=discord.AllowedMentions.none())
+
     def execute(self, func, *args, **kwargs):
         return self.loop.run_in_executor(self.process_pool, partial(func, *args, **kwargs))
