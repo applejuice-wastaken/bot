@@ -226,13 +226,13 @@ class Imaging(commands.Cog):
 
         return output
 
-    @commands.command(name="flag")
-    async def show_flag_only(self, ctx, *, flag: Flag):
+    @commands.group(name="flag", invoke_without_command=True)
+    async def show_flag(self, ctx, *, flag: Flag):
         """shows a flag"""
         flag_bin = await flag.read()
 
         try:
-            pix = await self.loop.run_in_executor(self.process_pool, partial(find_mean_color, flag_bin))
+            pix = await self.execute(find_mean_color, flag_bin)
         except Image.UnidentifiedImageError:
             await ctx.send(f"`{flag.name}` type, provided by {flag.provider}, is unsupported")
         else:
@@ -245,6 +245,39 @@ class Imaging(commands.Cog):
                 e = discord.Embed(color=discord.Color.from_rgb(*pix))
                 e.set_image(url="attachment://v.png")
                 await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
+
+    @show_flag.command(name="mixin")
+    async def mixin(self, ctx, *flags: Flag):
+        if len(flags) == 0:
+            await ctx.send(f"no flags provided")
+            return
+
+        listing = "\n".join(f"    `{flag.name}` flag provided by {flag.provider}" for flag in flags)
+
+        if len(flags) < 2:
+            await ctx.send(f"insufficient flags:\n{listing}")
+            return
+
+        flags_bin = []
+        for flag in flags:
+            flags_bin.append(await flag.read())
+
+        try:
+            flags = await self.execute(open_flags, *flags_bin)
+
+            stitched_flag = await self.execute(stitch_flags, flags[0].size, *flags)
+
+            pix = await self.execute(find_mean_color, stitched_flag)
+
+            # little hack to avoid writing function
+            io = await self.execute(image_as_io(lambda sf: sf), stitched_flag)
+        except BadImageInput:
+            await ctx.send(f"This flag type is unsupported")
+        else:
+            file = discord.File(io, filename="v.png")
+            e = discord.Embed(color=discord.Color.from_rgb(*pix))
+            e.set_image(url="attachment://v.png")
+            await ctx.send(f"using:\n{listing}", file=file, embed=e)
 
     def execute(self, func, *args, **kwargs):
         return self.loop.run_in_executor(self.process_pool, partial(func, *args, **kwargs))
