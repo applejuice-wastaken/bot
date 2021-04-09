@@ -280,8 +280,10 @@ class Imaging(commands.Cog):
             await ctx.send(f"using:\n{listing}", file=file, embed=e)
 
     @commands.command(name="avatar", aliases=("pfp",))
-    async def avatar(self, ctx):
-        asset = ctx.author.avatar_url_as()
+    async def avatar(self, ctx, target: discord.User = None):
+        target = ctx.author if target is None else target
+
+        asset = target.avatar_url_as()
         user_bin = await asset.read()
 
         try:
@@ -293,7 +295,7 @@ class Imaging(commands.Cog):
 
         embed = discord.Embed(color=discord.Color.from_rgb(*pix))
         embed.set_image(url=str(asset))
-        await ctx.send(f"{ctx.author.mention}'s profile picture", embed=embed,
+        await ctx.send(f"{target.mention}'s profile picture", embed=embed,
                        mention_author=discord.AllowedMentions.none())
 
     def execute(self, func, *args, **kwargs):
