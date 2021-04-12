@@ -18,6 +18,8 @@ import math
 
 import colorsys
 
+import itertools
+
 
 async def retrieve(url):
     async with aiohttp.request("GET", url) as image_response:
@@ -54,49 +56,28 @@ def open_flags(*flags_bin):
 
     return ret[0] if len(ret) == 1 else ret
 
+
 def stitch_flags(size, *flags: Image):
     mask = Image.new("L", size, 0)
-    overlay = Image.new("RGBA", size, (0, 0, 0, 0))
     ret = Image.new("RGB", size, (0, 0, 0))
 
-    drawer = ImageDraw(mask)
-    overlay_drawer = ImageDraw(overlay)
+    mask_drawer = ImageDraw(mask)
 
-    step_size = math.pi * 2 / len(flags)
-    point_offset = max(size) * 2
-    angle_offset = -math.pi / 2  # begin at the top
+    spacing = 1 / (len(flags) - 1) * size[0]
+
+    def generate_point_for_idx(index):
+        return index * spacing, size[1] if index % 2 == 0 else 0
 
     for idx, flag in enumerate(flags):
-        start = (math.cos(idx * step_size - angle_offset) * point_offset + size[0] / 2,
-                 math.sin(idx * step_size - angle_offset) * point_offset + size[1] / 2)
+        points = [*generate_point_for_idx(idx - 1), *generate_point_for_idx(idx), *generate_point_for_idx(idx + 1)]
 
-        middle = (math.cos((idx + 0.5) * step_size - angle_offset) * point_offset + size[0] / 2,
-                  math.sin((idx + 0.5) * step_size - angle_offset) * point_offset + size[1] / 2)
-
-        end = (math.cos((idx + 1) * step_size - angle_offset) * point_offset + size[0] / 2,
-               math.sin((idx + 1) * step_size - angle_offset) * point_offset + size[1] / 2)
-
-        # quick and dirty way of drawing only a part of the mask
-
-        drawer.polygon((size[0] / 2, size[1] / 2) + start + middle + end, 255)
-
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + start, (255, 255, 255, 255), 11)  # odd number on purpose
+        mask_drawer.polygon(points, 255)
 
         flag = center_resize(flag, *size)
 
         ret.paste(flag, mask=mask)
 
-        drawer.rectangle((0, 0) + mask.size, 0)  # clear
-
-    # draw black center
-
-    for idx in range(len(flags)):
-        point = (math.cos(idx * step_size - angle_offset) * point_offset + size[0] / 2,
-                 math.sin(idx * step_size - angle_offset) * point_offset + size[1] / 2)
-
-        overlay_drawer.line((size[0] / 2, size[1] / 2) + point, (0, 0, 0, 255), 5)
-
-    ret.paste(overlay, mask=overlay)
+        mask_drawer.rectangle((0, 0) + mask.size, 0)  # clear
 
     return ret
 
@@ -106,7 +87,6 @@ def generic_flag_command(name):
         func = image_as_io(func)
 
         async def command(self, ctx, *, flag: Flag):
-            print("normal")
             self: Imaging
 
             await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
