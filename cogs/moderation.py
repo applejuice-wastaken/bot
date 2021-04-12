@@ -3,15 +3,24 @@ import datetime
 
 from collections import deque
 import dataclasses
+from typing import Dict, Any
 
 import discord
 from discord.ext import commands
+
+from reactive_message.ReactiveMessage import ReactiveMessage
+from util.human_join_list import human_join_list
+
 
 @dataclasses.dataclass(frozen=True)
 class Record:
     message_id: int
     deleted_messages: int = 0
-
+    authors: set = dataclasses.field(default_factory=set)
+    pinged_roles: set = dataclasses.field(default_factory=set)
+    pinged_users: set = dataclasses.field(default_factory=set)
+    pinged_everyone: bool = False
+    times: int = 1
 
 class Moderation(commands.Cog):
     DOWN = "\U0001f53d"
@@ -49,22 +58,80 @@ class Moderation(commands.Cog):
                 await ctx.send("Timeout", delete_after=10)
                 await ctx.message.delete(delay=5)
                 await confirm_message.delete(delay=5)
+
+                if messages[0].id != ctx.message.id:
+                    await messages[0].remove_reaction(self.UP, ctx.guild.me)
+
+                await messages[-1].remove_reaction(self.DOWN, ctx.guild.me)
             else:
                 if emoji.name == "✅":
                     deleted = 0
+                    pinged_roles = set()
+                    pinged_users = set()
+                    authors = {ctx.author}
+                    pinged_everyone = False
+                    times = 1
+
                     for message in messages:
+                        message: discord.Message
+
                         info = discord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
                         if info is not None:
+                            info: Record
+
                             deleted += info.deleted_messages
+
+                            authors |= info.authors
+                            pinged_roles |= info.pinged_roles
+                            pinged_users |= info.pinged_users
+                            pinged_everyone |= info.pinged_everyone
+                            times += info.times
+
+                        for role in message.role_mentions:
+                            pinged_roles.add(role)
+
+                        for user in message.mentions:
+                            pinged_users.add(user)
+
+                        pinged_everyone |= message.mention_everyone
                         deleted += 1
 
                     while len(messages) > 0:
                         await ctx.channel.delete_messages(messages[:101])
                         messages = messages[101:]
 
-                    trace = await ctx.send(f"*[Deleted {deleted} Messages]*")
+                    main_chunk = f"Deleted {deleted} Messages " \
+                                 f"issued by {human_join_list([author.mention for author in authors])}"
 
-                    self.purge_info.append(Record(trace.id, deleted))
+                    appended_info = []
+
+                    if pinged_users:
+                        appended_info.append(f"{len(pinged_users)} user{'' if len(pinged_users) == 1 else 's'}")
+
+                    if pinged_roles:
+                        appended_info.append(f"{len(pinged_roles)} role{'' if len(pinged_roles) == 1 else 's'}")
+
+                    if pinged_everyone:
+                        appended_info.append("everyone")
+
+                    if appended_info:
+                        main_chunk += ", that pinged "
+
+                    if times > 2:
+                        self.purge_until: commands.Command
+
+                        tip = f"\n*(TIP: Use " \
+                              f"`{self.bot.command_prefix}{self.purge_until.qualified_name}" \
+                              f" {self.purge_until.signature}` command for a more " \
+                              f"accurate selection of messages to purge)*"
+                    else:
+                        tip = ""
+
+                    trace = await ctx.send(f"*[{main_chunk + human_join_list(appended_info)}]*{tip}",
+                                           allowed_mentions=discord.AllowedMentions.none())
+
+                    self.purge_info.append(Record(trace.id, deleted, authors,
+                                                  pinged_roles, pinged_users, pinged_everyone, times))
                 else:
                     await ctx.message.delete()
 
