@@ -1,6 +1,6 @@
 from abc import ABC
 
-from reactive_message.ReactiveMessage import ReactiveMessage
+from .ReactiveMessage import ReactiveMessage
 
 
 class HoistedReactiveMessage(ReactiveMessage, ABC):
