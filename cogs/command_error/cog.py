@@ -172,7 +172,8 @@ class CommandError(commands.Cog):
         if isinstance(error, (commands.CommandInvokeError, commands.ConversionError)):
             self.capture_exception(type(error), error, error.__traceback__)
         elif not isinstance(error, commands.CommandNotFound):
-            await ctx.send(str(error))
+            message = await ctx.send(str(error))
+            self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: message.delete())
 
     async def on_error(self, *_, **__):
         error_type, error, tb = sys.exc_info()
