@@ -28,15 +28,6 @@ class Uninvoke(commands.Cog):
 
         await self.bot.process_commands(after)
 
-    @commands.Cog.listener()
-    async def on_message_delete(self, message):
-        unloader = discord.utils.get(self._uninvokers, message__id = message.id)
-
-        if unloader is not None:
-            await discord.utils.maybe_coroutine(unloader.action)
-
-            self._uninvokers.remove(unloader)
-
 
 UnloadEntry = namedtuple("UnloadEntry", "message action")
 
