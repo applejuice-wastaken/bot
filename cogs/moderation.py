@@ -117,7 +117,7 @@ class Moderation(commands.Cog):
                     if appended_info:
                         main_chunk += ", that pinged "
 
-                    if times > 2:
+                    if times == 3:
                         self.purge_until: commands.Command
 
                         tip = f"\n*(TIP: Use " \
