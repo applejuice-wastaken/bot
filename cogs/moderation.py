@@ -97,8 +97,8 @@ class Moderation(commands.Cog):
                         deleted += 1
 
                     while len(messages) > 0:
-                        await ctx.channel.delete_messages(messages[:101])
-                        messages = messages[101:]
+                        await ctx.channel.delete_messages(messages[:100])
+                        messages = messages[100:]
 
                     main_chunk = f"Deleted {deleted} Messages " \
                                  f"issued by {human_join_list([author.mention for author in authors])}"
@@ -164,7 +164,7 @@ class Moderation(commands.Cog):
         if quantity <= 1:
             await ctx.send("Has to be higher than 1")
         else:
-            messages = await ctx.channel.history(limit=quantity).flatten()
+            messages = await ctx.channel.history(limit=quantity + 1).flatten()
 
             await self.purge_action(ctx, messages)
 
