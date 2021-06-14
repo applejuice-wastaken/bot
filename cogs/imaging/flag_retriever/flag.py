@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
-
 import aiohttp
 from discord.ext import commands
 
@@ -34,6 +32,6 @@ class Flag:
             ret = await get_flag(argument)
 
         if ret is None:
-            raise commands.BadArgument("Flag not found.")
+            raise commands.BadArgument(f"Flag `{argument}` not found.")
 
         return ret

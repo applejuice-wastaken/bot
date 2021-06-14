@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import inspect
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
@@ -12,6 +13,7 @@ import aiohttp
 from PIL.ImageDraw import ImageDraw
 from discord.ext import commands
 
+from .bot_avatar import get_new_avatar
 from .flag_retriever.flag import Flag
 
 import math
@@ -20,10 +22,13 @@ import colorsys
 
 import itertools
 
+import imagehash
+
 
 async def retrieve(url):
     async with aiohttp.request("GET", url) as image_response:
         return await image_response.read()
+
 
 def image_as_io(func):
     @wraps(func)
@@ -35,6 +40,7 @@ def image_as_io(func):
         return output_buffer
 
     return wrapper
+
 
 def asset_path(name):
     self_dir = os.path.dirname(__file__)
@@ -148,6 +154,7 @@ def generic_flag_command(name):
 
     return wrapper
 
+
 def center_resize(target: Image.Image, width, height):
     scale = max(width / target.width, height / target.height)
 
@@ -173,12 +180,16 @@ def find_mean_color(image):
 
 class Imaging(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: commands.Bot = bot
         self.loop = asyncio.get_event_loop()
 
         self.process_pool = ThreadPoolExecutor(2)
 
         self.cooldown_mapping = commands.CooldownMapping.from_cooldown(1, 5.0, commands.BucketType.user)
+
+        self.avatar_hash = None
+
+        self.bot.loop.create_task(self.manage_bot_avatar())
 
     async def cog_before_invoke(self, ctx):
         bucket = self.cooldown_mapping.get_bucket(ctx.message)
@@ -280,3 +291,30 @@ class Imaging(commands.Cog):
 
     def execute(self, func, *args, **kwargs):
         return self.loop.run_in_executor(self.process_pool, partial(func, *args, **kwargs))
+
+    async def manage_bot_avatar(self):
+        await self.bot.wait_until_ready()
+
+        image = await self.execute(open_flags, await self.bot.user.avatar_url_as().read())
+
+        self.avatar_hash = imagehash.average_hash(image)
+
+        while True:
+            await self.change_bot_avatar()
+            await asyncio.sleep(time_until_end_of_day().total_seconds() + 1)
+
+    async def change_bot_avatar(self):
+        avatar = await get_new_avatar(self)
+        io = await self.execute(image_as_io(lambda sf: sf), avatar)
+        hash = imagehash.average_hash(avatar)
+
+        if self.avatar_hash - hash >= 2:
+            await self.bot.user.edit(avatar=io.read())
+            self.avatar_hash = hash
+
+
+def time_until_end_of_day(dt=None):
+    if dt is None:
+        dt = datetime.datetime.now()
+    tomorrow = dt + datetime.timedelta(days=1)
+    return datetime.datetime.combine(tomorrow, datetime.time.min) - dt
