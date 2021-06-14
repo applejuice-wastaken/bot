@@ -230,10 +230,26 @@ class Interaction(commands.Cog):
             if "/" in role.name:
                 chunks = role.name.split("/")
 
-                if len(chunks) >= 2:
-                    n = chunks[1].lower()
-                    available.append(f"{n}{'selves' if n == 'them' else 'self'}")
-                    # him/her/them most likely
+                for chunk in chunks:
+                    p: str = chunk.lower()
+                    if p.endswith("self") or p.endswith("selves"):
+                        available.append(chunk)
+                        break
+
+                else:
+                    if len(chunks) >= 2:
+                        p = chunks[1].lower()
+                        if len(p) <= 5 and p != 'them':
+                            # 5 length sounds good
+
+                            # the reason why this is here is because people normally include the
+                            # they/them as a "fallback" pronoun?
+
+                            # the way this is set would make this pronoun at a lower priority and
+                            # make it pick "personalized" pronouns instead
+
+                            available.append(f"{p}self")
+                            # him/her + self most likely
 
         if available:
             return random.choice(available)
