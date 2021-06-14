@@ -1,4 +1,5 @@
 import inspect
+import random
 import re
 from collections import deque, namedtuple
 from typing import List
@@ -30,7 +31,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
     async def make_response(self, ctx, *users: discord.Member):
         def transform(u):
             if u == ctx.author:
-                return "themselves"
+                return self.scrape_pronouns(ctx.author)
             elif u == ctx.bot.user:
                 return "me"
             else:
@@ -198,46 +199,46 @@ def bulk_delete(sequence, **attrs):
         sequence.remove(obj)
 
 
-CacheRecord = namedtuple("CacheRecord", "guild_id member_id action value")
-
-
 class Interaction(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-        self.command_cache = deque(maxlen=100)
 
     def user_accepts(self, member, *actions):
         if isinstance(member, discord.User) or member.discriminator == "0000":
             return True
 
         for action in actions:
-            cached = discord.utils.get(self.command_cache, guild_id=member.guild.id, member_id=member.id, action=action)
+            role = discord.utils.get(member.roles, name=f"no {action}")
 
-            if cached is None:
-                role = discord.utils.get(member.roles, name=f"no {action}")
-
-                allowed = role is None
-
-                self.command_cache.append(CacheRecord(guild_id=member.guild.id,
-                                                      member_id=member.id,
-                                                      action=action,
-                                                      value=allowed))
-            else:
-                allowed = cached.value
+            allowed = role is None
 
             if not allowed:
                 return False
         return True
 
-    @commands.Cog.listener()
-    async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
-        if before.name.startswith("no "):
-            bulk_delete(self.command_cache, guild_id=before.guild.id, action=before.name[3:])
+    def scrape_pronouns(self, member):
+        # roles denoting pronouns are normally ^.*/.*
 
-    @commands.Cog.listener()
-    async def on_member_update(self, before: discord.Member, after: discord.Member):
-        bulk_delete(self.command_cache, member_id=before.id)
+        if isinstance(member, discord.User) or member.discriminator == "0000":
+            return "themselves"
+
+        available = []
+
+        for role in member.roles:
+            role: discord.Role
+
+            if "/" in role.name:
+                chunks = role.name.split("/")
+
+                if len(chunks) >= 2:
+                    n = chunks[1].lower()
+                    available.append(f"{n}{'selves' if n == 'them' else 'self'}")
+                    # him/her/them most likely
+
+        if available:
+            return random.choice(available)
+
+        return "themselves"
 
     @interaction_command_factory("hug", "hugs")
     async def custom_hug(self, ctx, allowed, role_denied, condition_denied):
