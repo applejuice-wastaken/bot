@@ -16,13 +16,9 @@ from discord.ext import commands
 from .bot_avatar import get_new_avatar
 from .flag_retriever.flag import Flag
 
-import math
-
-import colorsys
-
-import itertools
-
 import imagehash
+
+from .resize import center_resize
 
 
 async def retrieve(url):
@@ -97,11 +93,10 @@ def generic_flag_command(name):
 
             await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
 
-            flag_bin = await flag.read()
+            flag = await flag.open()
             user_bin = await ctx.author.avatar_url_as().read()
 
             try:
-                flag = await self.execute(open_flags, flag_bin)
                 user = await self.execute(open_flags, user_bin)
 
                 io = await self.execute(func, self, user, flag)
@@ -124,14 +119,13 @@ def generic_flag_command(name):
 
             await ctx.send(f"using:\n{listing}")
 
-            flags_bin = []
+            flags = []
             for flag in flags:
-                flags_bin.append(await flag.read())
+                flags.append(await flag.open())
 
             user_bin = await ctx.author.avatar_url_as().read()
 
             try:
-                flags = await self.execute(open_flags, *flags_bin)
                 user = await self.execute(open_flags, user_bin)
 
                 stitched_flag = await self.execute(stitch_flags, user.size, *flags)
@@ -153,20 +147,6 @@ def generic_flag_command(name):
         return c
 
     return wrapper
-
-
-def center_resize(target: Image.Image, width, height):
-    scale = max(width / target.width, height / target.height)
-
-    new_width = target.width * scale
-    new_height = target.height * scale
-
-    x = (new_width - width) / 2
-    y = (new_height - height) / 2
-
-    box = [int(i) for i in (x, y, x + width, y + height)]
-
-    return target.resize((int(new_width), int(new_height))).crop(box)
 
 
 def find_mean_color(image):
@@ -220,22 +200,15 @@ class Imaging(commands.Cog):
     @commands.group(name="flag", invoke_without_command=True)
     async def show_flag(self, ctx, *, flag: Flag):
         """shows a flag"""
-        flag_bin = await flag.read()
+        opened_flag = await flag.open()
+        pix = await self.execute(find_mean_color, opened_flag)
 
-        try:
-            pix = await self.execute(find_mean_color, flag_bin)
-        except Image.UnidentifiedImageError:
-            await ctx.send(f"`{flag.name}` type, provided by {flag.provider}, is unsupported")
-        else:
-            if flag.is_remote:
-                embed = discord.Embed(color=discord.Color.from_rgb(*pix))
-                embed.set_image(url=flag.url)
-                await ctx.send(f"`{flag.name}`, provided by {flag.provider}", embed=embed)
-            else:
-                file = discord.File(flag.url, filename="v.png")
-                e = discord.Embed(color=discord.Color.from_rgb(*pix))
-                e.set_image(url="attachment://v.png")
-                await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
+        io = await self.execute(image_as_io(lambda sf: sf), opened_flag)
+
+        file = discord.File(io, filename="v.png")
+        e = discord.Embed(color=discord.Color.from_rgb(*pix))
+        e.set_image(url="attachment://v.png")
+        await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
 
     @show_flag.command(name="mixin")
     async def mixin(self, ctx, *flags: Flag):
@@ -249,13 +222,11 @@ class Imaging(commands.Cog):
             await ctx.send(f"insufficient flags:\n{listing}")
             return
 
-        flags_bin = []
+        flags = []
         for flag in flags:
-            flags_bin.append(await flag.read())
+            flags.append(await flag.open())
 
         try:
-            flags = await self.execute(open_flags, *flags_bin)
-
             stitched_flag = await self.execute(stitch_flags, flags[0].size, *flags)
 
             pix = await self.execute(find_mean_color, stitched_flag)
@@ -307,10 +278,17 @@ class Imaging(commands.Cog):
         avatar = await get_new_avatar(self)
         io = await self.execute(image_as_io(lambda sf: sf), avatar)
         hash = imagehash.average_hash(avatar)
+        if self.avatar_hash - hash > 4:
+            trying = True
+            while trying:
+                try:
+                    await self.bot.user.edit(avatar=io.read())
+                    self.avatar_hash = hash
+                    trying = False
+                except discord.HTTPException:
+                    pass
 
-        if self.avatar_hash - hash >= 2:
-            await self.bot.user.edit(avatar=io.read())
-            self.avatar_hash = hash
+                await asyncio.sleep(60 * 10)
 
 
 def time_until_end_of_day(dt=None):
