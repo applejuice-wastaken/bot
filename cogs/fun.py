@@ -21,12 +21,6 @@ class Fun(commands.Cog):
         if webhook is not None:
             await webhook.send(content, username=name, avatar_url=av if av.startswith("http") else None)
 
-    @commands.command(name="noping")
-    async def no_ping(self, ctx, member: discord.Member):
-        """sends a message mentioning member without pinging"""
-        m = await ctx.send(f"gotcha: {member.mention}", allowed_mentions=discord.AllowedMentions(users=False))
-        self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: m.delete())
-
 
 def setup(bot):
     bot.add_cog(Fun(bot))
