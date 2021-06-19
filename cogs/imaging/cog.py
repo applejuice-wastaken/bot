@@ -93,18 +93,19 @@ def generic_flag_command(name):
 
             await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
 
-            flag = await flag.open()
-            user_bin = await ctx.author.avatar_url_as().read()
+            async with ctx.typing():
+                flag = await flag.open()
+                user_bin = await ctx.author.avatar_url_as().read()
 
-            try:
-                user = await self.execute(open_flags, user_bin)
+                try:
+                    user = await self.execute(open_flags, user_bin)
 
-                io = await self.execute(func, self, user, flag)
+                    io = await self.execute(func, self, user, flag)
 
-            except BadImageInput:
-                await ctx.send(f"This flag type is unsupported")
-            else:
-                await ctx.send(file=discord.File(io, "output.png"))
+                except BadImageInput:
+                    await ctx.send(f"This flag type is unsupported")
+                else:
+                    await ctx.send(file=discord.File(io, "output.png"))
 
         async def mixin(self, ctx, *flags: Flag):
             if len(flags) == 0:
@@ -119,23 +120,24 @@ def generic_flag_command(name):
 
             await ctx.send(f"using:\n{listing}")
 
-            flags = []
-            for flag in flags:
-                flags.append(await flag.open())
+            async with ctx.typing():
+                flags = []
+                for flag in flags:
+                    flags.append(await flag.open())
 
-            user_bin = await ctx.author.avatar_url_as().read()
+                user_bin = await ctx.author.avatar_url_as().read()
 
-            try:
-                user = await self.execute(open_flags, user_bin)
+                try:
+                    user = await self.execute(open_flags, user_bin)
 
-                stitched_flag = await self.execute(stitch_flags, user.size, *flags)
+                    stitched_flag = await self.execute(stitch_flags, user.size, *flags)
 
-                io = await self.execute(func, self, user, stitched_flag)
+                    io = await self.execute(func, self, user, stitched_flag)
 
-            except BadImageInput:
-                await ctx.send(f"This flag type is unsupported")
-            else:
-                await ctx.send(file=discord.File(io, "output.png"))
+                except BadImageInput:
+                    await ctx.send(f"This flag type is unsupported")
+                else:
+                    await ctx.send(file=discord.File(io, "output.png"))
 
         command.__doc__ = func.__doc__
         mixin.__doc__ = func.__doc__
@@ -198,48 +200,50 @@ class Imaging(commands.Cog):
         return output
 
     @commands.group(name="flag", invoke_without_command=True)
-    async def show_flag(self, ctx, *, flag: Flag):
+    async def show_flag(self, ctx: commands.Context, *, flag: Flag):
         """shows a flag"""
-        opened_flag = await flag.open()
-        pix = await self.execute(find_mean_color, opened_flag)
+        async with ctx.typing():
+            opened_flag = await flag.open()
+            pix = await self.execute(find_mean_color, opened_flag)
 
-        io = await self.execute(image_as_io(lambda sf: sf), opened_flag)
+            io = await self.execute(image_as_io(lambda sf: sf), opened_flag)
 
-        file = discord.File(io, filename="v.png")
-        e = discord.Embed(color=discord.Color.from_rgb(*pix))
-        e.set_image(url="attachment://v.png")
-        await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
+            file = discord.File(io, filename="v.png")
+            e = discord.Embed(color=discord.Color.from_rgb(*pix[:3]))
+            e.set_image(url="attachment://v.png")
+            await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
 
     @show_flag.command(name="mixin")
     async def mixin(self, ctx, *flags: Flag):
-        if len(flags) == 0:
-            await ctx.send(f"no flags provided")
-            return
+        async with ctx.typing():
+            if len(flags) == 0:
+                await ctx.send(f"no flags provided")
+                return
 
-        listing = "\n".join(f"    `{flag.name}` flag provided by {flag.provider}" for flag in flags)
+            listing = "\n".join(f"    `{flag.name}` flag provided by {flag.provider}" for flag in flags)
 
-        if len(flags) < 2:
-            await ctx.send(f"insufficient flags:\n{listing}")
-            return
+            if len(flags) < 2:
+                await ctx.send(f"insufficient flags:\n{listing}")
+                return
 
-        flags = []
-        for flag in flags:
-            flags.append(await flag.open())
+            flags = []
+            for flag in flags:
+                flags.append(await flag.open())
 
-        try:
-            stitched_flag = await self.execute(stitch_flags, flags[0].size, *flags)
+            try:
+                stitched_flag = await self.execute(stitch_flags, flags[0].size, *flags)
 
-            pix = await self.execute(find_mean_color, stitched_flag)
+                pix = await self.execute(find_mean_color, stitched_flag)
 
-            # little hack to avoid writing function
-            io = await self.execute(image_as_io(lambda sf: sf), stitched_flag)
-        except BadImageInput:
-            await ctx.send(f"This flag type is unsupported")
-        else:
-            file = discord.File(io, filename="v.png")
-            e = discord.Embed(color=discord.Color.from_rgb(*pix))
-            e.set_image(url="attachment://v.png")
-            await ctx.send(f"using:\n{listing}", file=file, embed=e)
+                # little hack to avoid writing function
+                io = await self.execute(image_as_io(lambda sf: sf), stitched_flag)
+            except BadImageInput:
+                await ctx.send(f"This flag type is unsupported")
+            else:
+                file = discord.File(io, filename="v.png")
+                e = discord.Embed(color=discord.Color.from_rgb(*pix))
+                e.set_image(url="attachment://v.png")
+                await ctx.send(f"using:\n{listing}", file=file, embed=e)
 
     @commands.command(name="avatar", aliases=("pfp",))
     async def avatar(self, ctx, target: discord.User = None):
