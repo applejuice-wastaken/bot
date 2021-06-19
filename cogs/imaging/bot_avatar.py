@@ -18,14 +18,9 @@ async def get_new_avatar(cog):
     now = datetime.datetime.now()
 
     if now.month == 6:
-        # happy pride day
-        async with aiofiles.open(path("pmcalendar.txt")) as fp:
-            content = await fp.read()
+        # happy pride month
 
-        content = content.split("\n")
-
-        now_flag = content[now.day - 1]
-        flag = await get_flag(now_flag, schema="lgbt")
+        flag = await get_flag("gay")
 
         if flag is None:
             return original
