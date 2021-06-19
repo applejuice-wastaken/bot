@@ -121,16 +121,16 @@ def generic_flag_command(name):
             await ctx.send(f"using:\n{listing}")
 
             async with ctx.typing():
-                flags = []
+                opened_flags = []
                 for flag in flags:
-                    flags.append(await flag.open())
+                    opened_flags.append(await flag.open())
 
                 user_bin = await ctx.author.avatar_url_as().read()
 
                 try:
                     user = await self.execute(open_flags, user_bin)
 
-                    stitched_flag = await self.execute(stitch_flags, user.size, *flags)
+                    stitched_flag = await self.execute(stitch_flags, user.size, *opened_flags)
 
                     io = await self.execute(func, self, user, stitched_flag)
 
@@ -226,12 +226,12 @@ class Imaging(commands.Cog):
                 await ctx.send(f"insufficient flags:\n{listing}")
                 return
 
-            flags = []
+            opened_flags = []
             for flag in flags:
-                flags.append(await flag.open())
+                opened_flags.append(await flag.open())
 
             try:
-                stitched_flag = await self.execute(stitch_flags, flags[0].size, *flags)
+                stitched_flag = await self.execute(stitch_flags, opened_flags[0].size, *opened_flags)
 
                 pix = await self.execute(find_mean_color, stitched_flag)
 
