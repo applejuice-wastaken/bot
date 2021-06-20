@@ -44,7 +44,7 @@ async def figure_pronouns(member: discord.Member, *, return_default=True,
         role: discord.Role
 
         if "/" in role.name:
-            chunks = role.name.split("/")
+            chunks = [chunk.lower() for chunk in role.name.split("/")]
 
             pronoun = None
 
