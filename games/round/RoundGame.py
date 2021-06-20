@@ -34,7 +34,7 @@ def action_join(actions: Sequence[Sequence[Category]]):
     for group in groupings:
         ret.append(equal_action_join(group))
 
-    return human_join_list(ret, True)
+    return human_join_list(ret, analyse_contents=True)
 
 
 def equal_action_join(actions: Sequence[Sequence[Category]]):
@@ -175,7 +175,7 @@ class RoundGame(GameWithTimeout):
 
             same_player_chunks.append(same_player_chunk)
 
-        return human_join_list(same_player_chunks, True)
+        return human_join_list(same_player_chunks, analyse_contents=True)
 
     def cycle(self):
         if self.direction == Direction.UP_WARDS:

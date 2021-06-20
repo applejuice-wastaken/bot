@@ -97,7 +97,7 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             final.append(acted)
 
         if disallowed_fragments:
-            final.append(human_join_list(disallowed_fragments, True))
+            final.append(human_join_list(disallowed_fragments, analyse_contents=True))
 
         to_send = " but ".join(final)
 

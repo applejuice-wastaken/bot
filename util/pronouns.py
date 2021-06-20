@@ -15,25 +15,28 @@ class Pronoun:
     possessive_determiner: str
     possessive_pronoun: str
     reflexive: str
+    normative: bool = False
+
+    def __str__(self):
+        if self.normative:
+            return f"{self.pronoun_subject}/{self.pronoun_object}"
+
+        else:
+            return f"{self.pronoun_subject}/{self.pronoun_object}/{self.possessive_determiner}/" \
+                   f"{self.possessive_pronoun}/{self.reflexive}"
 
 
-cache = {}
-
-to_fill = [
-    Pronoun("he", "him", "his", "his", "himself"),
-    Pronoun("she", "her", "her", "hers", "herself"),
-    Pronoun("they", "them", "their", "theirs", "themselves")
-           ]
-
-for pronoun_to_fill in to_fill:
-    for morpheme in dataclasses.astuple(pronoun_to_fill):
-        cache[morpheme] = pronoun_to_fill
+cache = {"he": Pronoun("he", "him", "his", "his", "himself", True),
+         "she": Pronoun("she", "her", "her", "hers", "herself", True),
+         "they": Pronoun("they", "them", "their", "theirs", "themselves", True)}
 
 default = cache["they"]
 
-async def figure_pronouns(member: discord.Member) -> typing.Optional[Pronoun]:
+
+async def figure_pronouns(member: discord.Member, *, return_default=True,
+                          return_multiple=False) -> typing.Union[None, Pronoun, typing.List[Pronoun]]:
     if isinstance(member, discord.User) or member.discriminator == "0000":
-        return await fetch_pronoun("them")
+        return ([default] if return_multiple else default) if return_default else None
 
     available = []
 
@@ -48,6 +51,9 @@ async def figure_pronouns(member: discord.Member) -> typing.Optional[Pronoun]:
             if len(chunks) == 5:
                 pronoun = Pronoun(*chunks)
 
+            elif len(chunks) == 3:
+                pronoun = Pronoun(chunks[0], chunks[0], chunks[1], chunks[1], chunks[2])
+
             else:
                 for chunk in chunks:
                     pronoun = await fetch_pronoun(chunk)
@@ -61,12 +67,17 @@ async def figure_pronouns(member: discord.Member) -> typing.Optional[Pronoun]:
         elif role.name == "nameself":
             a = member.mention
             b = f"{member.mention}'s"
-            return Pronoun(a, a, b, b, f"{member.mention}self")
+            pronoun = Pronoun(a, a, b, b, f"{member.mention}self")
+            return [pronoun] if return_multiple else pronoun
 
     if available:
-        return random.choice(available)
+        if return_multiple:
+            return available
+        else:
+            return random.choice(available)
 
-    return await fetch_pronoun("them")
+    return ([default] if return_multiple else default) if return_default else None
+
 
 async def fetch_pronoun(subject: str) -> typing.Optional[Pronoun]:
     if subject in cache:
@@ -88,7 +99,6 @@ async def fetch_pronoun(subject: str) -> typing.Optional[Pronoun]:
             else:
                 pronoun = Pronoun(**json["morphemes"])
 
-                for m in dataclasses.astuple(pronoun):
-                    cache[m] = pronoun
+                cache[pronoun.pronoun_subject] = pronoun
 
                 return pronoun
