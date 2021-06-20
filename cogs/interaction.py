@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import random
 import re
@@ -11,6 +12,7 @@ import operator
 from discord.ext.commands import MemberConverter, BadArgument
 
 from util.human_join_list import human_join_list
+from util.pronouns import figure_pronouns, default
 
 
 def interaction_command_factory(name, action, condition=lambda _, __: True):
@@ -29,9 +31,16 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
     command.__doc__ = f"executes a {name} action towards selected users, if allowed"
 
     async def make_response(self, ctx, *users: discord.Member):
+        try:
+            pronoun = await asyncio.wait_for(asyncio.shield(figure_pronouns(ctx.author)), 1)
+
+        except asyncio.TimeoutError:
+            print("too long")
+            pronoun = default
+
         def transform(u):
             if u == ctx.author:
-                return self.scrape_pronouns(ctx.author)
+                return pronoun.reflexive
             elif u == ctx.bot.user:
                 return "me"
             else:
@@ -80,7 +89,8 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             disallowed_fragments.append(f"{human_join_list(role_denied)} did not allow them to do this")
 
         if condition_denied:
-            disallowed_fragments.append(f"they could not do this with {human_join_list(condition_denied)}")
+            disallowed_fragments.append(f"{pronoun.pronoun_subject} could not do this "
+                                        f"with {human_join_list(condition_denied)}")
 
         final = []
         if acted is not None:
@@ -215,46 +225,6 @@ class Interaction(commands.Cog):
             if not allowed:
                 return False
         return True
-
-    def scrape_pronouns(self, member):
-        # roles denoting pronouns are normally ^.*/.*
-
-        if isinstance(member, discord.User) or member.discriminator == "0000":
-            return "themselves"
-
-        available = []
-
-        for role in member.roles:
-            role: discord.Role
-
-            if "/" in role.name:
-                chunks = role.name.split("/")
-
-                for chunk in chunks:
-                    p: str = chunk.lower()
-                    if p.endswith("self") or p.endswith("selves"):
-                        available.append(chunk)
-                        break
-
-                else:
-                    if len(chunks) >= 2:
-                        p = chunks[1].lower()
-                        if len(p) <= 5 and p != 'them':
-                            # 5 length sounds good
-
-                            # the reason why this is here is because people normally include the
-                            # they/them as a "fallback" pronoun?
-
-                            # the way this is set would make this pronoun at a lower priority and
-                            # make it pick "personalized" pronouns instead
-
-                            available.append(f"{p}self")
-                            # him/her + self most likely
-
-        if available:
-            return random.choice(available)
-
-        return "themselves"
 
     @interaction_command_factory("hug", "hugs")
     async def custom_hug(self, ctx, allowed, role_denied, condition_denied):
