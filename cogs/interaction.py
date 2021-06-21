@@ -1,22 +1,20 @@
 import asyncio
 import inspect
-import random
+import operator
 import re
-from collections import deque, namedtuple
 from typing import List
 
 import discord
 from discord.ext import commands
-import operator
-
 from discord.ext.commands import MemberConverter, BadArgument
 
 from util.human_join_list import human_join_list
 from util.pronouns import figure_pronouns, default
 
 
-def interaction_command_factory(name, action, condition=lambda _, __: True):
-    custom_function = None
+def interaction_command_factory(name, *, normal_str: str, rejected_str: str = "{1} did not allow {0} to do this",
+                                condition_rejected_str: str = "{0} could not do this to {1}", connotation=0,
+                                condition=lambda _, __: True):
 
     async def command(self, ctx, *users: RelativeMemberConverter):
 
@@ -42,9 +40,16 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
             if u == ctx.author:
                 return pronoun.reflexive
             elif u == ctx.bot.user:
-                return "me"
+                if connotation == -1:
+                    smile = " :("
+                elif connotation == 1:
+                    smile = " :)"
+                else:
+                    smile = ""
+
+                return f"me{smile}"
             else:
-                return u.name
+                return u.display_name
 
         self: Interaction
         users: List[discord.Member]
@@ -69,28 +74,29 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
         acted = None
         disallowed_fragments = []
 
-        if callable(custom_function):
-            ret = await custom_function(self, ctx, allowed, role_denied, condition_denied)
-            if ret is not None:
-                return ret
-
         allowed = [transform(user) for user in allowed]
         role_denied = [transform(user) for user in role_denied]
         condition_denied = [transform(user) for user in condition_denied]
 
         if not users:
-            return await ctx.send(f"{ctx.author.name} {action} the air...?",
+            return await ctx.send(normal_str.format(ctx.author.name, "the air"),
                                   allowed_mentions=discord.AllowedMentions.none())
 
+        referenced_name = False
+
         if allowed:
-            acted = f"{ctx.author.name} {action} {human_join_list(allowed)}"
+            acted = normal_str.format(ctx.author.display_name, human_join_list(allowed))
+            referenced_name = True
 
         if role_denied:
-            disallowed_fragments.append(f"{human_join_list(role_denied)} did not allow them to do this")
+            disallowed_fragments.append(rejected_str.format(pronoun.pronoun_object if referenced_name
+                                                            else ctx.author.name, human_join_list(role_denied)))
+            referenced_name = True
 
         if condition_denied:
-            disallowed_fragments.append(f"{pronoun.pronoun_subject} could not do this "
-                                        f"with {human_join_list(condition_denied)}")
+            disallowed_fragments.append(condition_rejected_str.format(pronoun.pronoun_subject if referenced_name
+                                                                      else ctx.author.name,
+                                                                      human_join_list(condition_denied)))
 
         final = []
         if acted is not None:
@@ -110,12 +116,6 @@ def interaction_command_factory(name, action, condition=lambda _, __: True):
 
     # inject command into class by putting it into a variable in it's frame
     inspect.currentframe().f_back.f_locals[f"_command_{name}"] = command
-
-    def wrapper(func):
-        nonlocal custom_function
-        custom_function = func
-
-    return wrapper
 
 
 class TooManyExponentials(BadArgument):
@@ -179,12 +179,12 @@ class RelativeMemberConverter(MemberConverter):
                             if many == 0:
                                 if len(message.mentions) == 1:
                                     return await self.query_member_by_id(ctx.bot, ctx.guild, message.mentions[0].id) \
-                                       or message.author
+                                           or message.author
 
                                 raw_mentions = message.raw_mentions
                                 if len(raw_mentions) == 1:
                                     return await self.query_member_by_id(ctx.bot, ctx.guild, raw_mentions[0]) \
-                                       or message.author
+                                           or message.author
 
                                 raise TooManyMessageMentions
                 else:
@@ -226,25 +226,44 @@ class Interaction(commands.Cog):
                 return False
         return True
 
-    @interaction_command_factory("hug", "hugs")
-    async def custom_hug(self, ctx, allowed, role_denied, condition_denied):
-        if (not allowed or (len(allowed) == 1 and ctx.author in allowed)) \
-                and not role_denied and not condition_denied:
-            return await ctx.send("I think someone here needs a hug.")
+    interaction_command_factory("hug", normal_str="{0} hugs {1}",
+                                rejected_str="they accidentally clicked {1} teleport "
+                                             "button before being able to hug them")
 
-    interaction_command_factory("kiss", "kisses")
-    interaction_command_factory("slap", "slaps", operator.ne)
-    interaction_command_factory("kill", "kills", operator.ne)
-    interaction_command_factory("stab", "stabs", operator.ne)
-    interaction_command_factory("stare", "stares at")
-    interaction_command_factory("lick", "licks")
-    interaction_command_factory("pet", "pets")
-    interaction_command_factory("pat", "pats")
-    interaction_command_factory("cookie", "gives a cookie to")
-    interaction_command_factory("attack", "attacks", operator.ne)
-    interaction_command_factory("boop", "boops")
-    interaction_command_factory("cuddle", "cuddles with")
-    interaction_command_factory("cake", "gives cake to")
+    interaction_command_factory("kiss", normal_str="{0} kisses {1}", rejected_str="{1} promptly denied the kiss")
+
+    interaction_command_factory("slap", normal_str="{0} slaps {1}",
+                                rejected_str="{1} did some weird scooching and avoided the slap", condition=operator.ne)
+
+    interaction_command_factory("kill", normal_str="{0} kills {1}", rejected_str="{1} used the totem of undying",
+                                condition=operator.ne)
+
+    interaction_command_factory("stab", normal_str="{0} stabs {1}",
+                                rejected_str="the knife's blade magically melted off while trying to stab {1}",
+                                condition=operator.ne)
+
+    interaction_command_factory("stare", normal_str="{0} stares at {1}", rejected_str="{1} turned invisible")
+
+    interaction_command_factory("lick", normal_str="{0} licks {1}")
+
+    interaction_command_factory("pet", normal_str="{0} pets {1}", rejected_str="{1} head(s) suddenly disappeared")
+
+    interaction_command_factory("pat", normal_str="{0} pats {1}", rejected_str="{0} hand pat {0} instead while "
+                                                                               "trying to pat {1}")
+
+    interaction_command_factory("cookie", normal_str="{0} gives a cookie to {1}",
+                                rejected_str="{1} threw off the cookie")
+
+    interaction_command_factory("attack", normal_str="{0} attacks {1}", rejected_str="{1} threw off the cookie",
+                                condition=operator.ne)
+
+    interaction_command_factory("boop", normal_str="{0} boops {1}", rejected_str="{1} had no nose")
+
+    interaction_command_factory("cuddle", normal_str="{0} cuddles with {1}",
+                                rejected_str="{1} looked at you in confusion and walked away")
+
+    interaction_command_factory("cake", normal_str="{0} gives cake to {1}",
+                                rejected_str="the cake turned into ash when it was given to {1}")
 
 
 def setup(bot):
