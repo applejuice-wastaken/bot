@@ -227,8 +227,7 @@ class Interaction(commands.Cog):
         return True
 
     interaction_command_factory("hug", normal_str="{0} hugs {1}",
-                                rejected_str="they accidentally clicked {1} teleport "
-                                             "button before being able to hug them")
+                                rejected_str="they hugged a lamp post trying to hug {1}")
 
     interaction_command_factory("kiss", normal_str="{0} kisses {1}", rejected_str="{1} promptly denied the kiss")
 
