@@ -77,7 +77,7 @@ class _ReferenceMorpheme(_Fragment, _Resolvable):
                 morpheme = "reflexive"
 
             pronoun = pronouns.collective
-            if speaker is not None and speaker == self.reference.users:
+            if speaker is not None and all(s in self.reference.users for s in speaker):
                 pronoun = pronouns.self_collective
 
             list_baking.append(getattr(pronoun, morpheme))
