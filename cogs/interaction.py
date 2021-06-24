@@ -8,13 +8,18 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import MemberConverter, BadArgument
 
-from util.human_join_list import human_join_list
-from util.pronouns import figure_pronouns, default
+from phrase.build import DeferredReference, build, MaybeReflexive, Reference
 
+author = DeferredReference("action_author")
+valid = DeferredReference("valid")
+rejected = DeferredReference("rejected")
+condition = DeferredReference("condition")
 
-def interaction_command_factory(name, *, normal_str: str, rejected_str: str = "{1} did not allow {0} to do this",
-                                condition_rejected_str: str = "{0} could not do this to {1}", connotation=0,
-                                condition=lambda _, __: True):
+def interaction_command_factory(name, *,
+                                normal: list,
+                                reject: list,
+                                condition_rejected: list = author + "could not do this to" + author.reflexive,
+                                condition_predicate=lambda _, __: True):
 
     async def command(self, ctx, *users: RelativeMemberConverter):
 
@@ -29,29 +34,6 @@ def interaction_command_factory(name, *, normal_str: str, rejected_str: str = "{
     command.__doc__ = f"executes a {name} action towards selected users, if allowed"
 
     async def make_response(self, ctx, *users: discord.Member):
-        try:
-            pronoun = await asyncio.wait_for(asyncio.shield(figure_pronouns(ctx.author)), 1)
-
-        except asyncio.TimeoutError:
-            print("too long")
-            pronoun = default
-
-        def transform(u):
-            if u == ctx.author:
-                return pronoun.reflexive
-            elif u == ctx.bot.user:
-                if connotation == -1:
-                    smile = " :("
-                elif connotation == 1:
-                    smile = " :)"
-                else:
-                    smile = ""
-
-                return f"me{smile}"
-            else:
-                return u.display_name
-
-        self: Interaction
         users: List[discord.Member]
 
         if not self.user_accepts(ctx.author, name, "thing"):
@@ -64,53 +46,37 @@ def interaction_command_factory(name, *, normal_str: str, rejected_str: str = "{
         for user in users:
             # noinspection PyTypeChecker
             if self.user_accepts(user, name, "thing"):
-                if condition(ctx.author, user):
+                if condition_predicate(ctx.author, user):
                     allowed.append(user)
                 else:
                     condition_denied.append(user)
             else:
                 role_denied.append(user)
 
-        acted = None
-        disallowed_fragments = []
-
-        allowed = [transform(user) for user in allowed]
-        role_denied = [transform(user) for user in role_denied]
-        condition_denied = [transform(user) for user in condition_denied]
-
         if not users:
-            return await ctx.send(normal_str.format(ctx.author.name, "the air"),
-                                  allowed_mentions=discord.AllowedMentions.none())
+            return await ctx.send("No users", allowed_mentions=discord.AllowedMentions.none())
 
-        referenced_name = False
+        baking = []
 
         if allowed:
-            acted = normal_str.format(ctx.author.display_name, human_join_list(allowed))
-            referenced_name = True
+            baking.extend(normal)
+
+        if allowed and (role_denied or condition_denied):
+            baking.append("but")
 
         if role_denied:
-            disallowed_fragments.append(rejected_str.format(pronoun.pronoun_object if referenced_name
-                                                            else ctx.author.name, human_join_list(role_denied)))
-            referenced_name = True
+            baking.extend(reject)
 
         if condition_denied:
-            disallowed_fragments.append(condition_rejected_str.format(pronoun.pronoun_subject if referenced_name
-                                                                      else ctx.author.name,
-                                                                      human_join_list(condition_denied)))
+            baking.extend(condition_rejected)
 
-        final = []
-        if acted is not None:
-            final.append(acted)
+        built = await build(baking, speaker=[ctx.bot.user], action_author=ctx.author, valid=allowed,
+                            rejected=role_denied, condition=condition_rejected)
 
-        if disallowed_fragments:
-            final.append(human_join_list(disallowed_fragments, analyse_contents=True))
-
-        to_send = " but ".join(final)
-
-        if len(to_send) > 500:
+        if len(built) > 500:
             return await ctx.send("I would send it the message wasn't this long")
 
-        return await ctx.send(to_send, allowed_mentions=discord.AllowedMentions.none())
+        return await ctx.send(built, allowed_mentions=discord.AllowedMentions.none())
 
     command = commands.guild_only()(commands.Command(command, name=name))
 
@@ -226,43 +192,66 @@ class Interaction(commands.Cog):
                 return False
         return True
 
-    interaction_command_factory("hug", normal_str="{0} hugs {1}",
-                                rejected_str="they hugged a lamp post trying to hug {1}")
+    interaction_command_factory("hug",
+                                normal=author + "hugs" + MaybeReflexive(author, valid),
+                                reject=author + "hugged a lamppost in confusion while trying to hug" + rejected.object)
 
-    interaction_command_factory("kiss", normal_str="{0} kisses {1}", rejected_str="{1} promptly denied the kiss")
+    interaction_command_factory("kiss",
+                                normal=author + "kisses" + MaybeReflexive(author, valid),
+                                reject=rejected + "promptly denied the kiss")
 
-    interaction_command_factory("slap", normal_str="{0} slaps {1}",
-                                rejected_str="{1} did some weird scooching and avoided the slap", condition=operator.ne)
+    interaction_command_factory("slap",
+                                normal=author + "slaps" + MaybeReflexive(author, valid),
+                                reject=rejected + "did some weird scooching and avoided the slap",
+                                condition_predicate=operator.ne)
 
-    interaction_command_factory("kill", normal_str="{0} kills {1}", rejected_str="{1} used the totem of undying",
-                                condition=operator.ne)
+    interaction_command_factory("kill",
+                                normal=author + "kills" + MaybeReflexive(author, valid),
+                                reject=rejected + "used the totem of undying",
+                                condition_predicate=operator.ne)
 
-    interaction_command_factory("stab", normal_str="{0} stabs {1}",
-                                rejected_str="the knife's blade magically melted off while trying to stab {1}",
-                                condition=operator.ne)
+    interaction_command_factory("stab",
+                                normal=author + "stabs" + MaybeReflexive(author, valid),
+                                reject="the knife's blade magically melted off while trying to stab" + rejected.object,
+                                condition_predicate=operator.ne)
 
-    interaction_command_factory("stare", normal_str="{0} stares at {1}", rejected_str="{1} turned invisible")
+    interaction_command_factory("stare",
+                                normal=author + "stares at" + MaybeReflexive(author, valid),
+                                reject=rejected + "turned invisible")
 
-    interaction_command_factory("lick", normal_str="{0} licks {1}")
+    interaction_command_factory("lick",
+                                normal=author + "licks" + MaybeReflexive(author, valid),
+                                reject=rejected + "put a cardboard sheet in front before" + author + "was able to kiss")
 
-    interaction_command_factory("pet", normal_str="{0} pets {1}", rejected_str="{1} head(s) suddenly disappeared")
+    interaction_command_factory("pet",
+                                normal=author + "pets" + MaybeReflexive(author, valid),
+                                reject=rejected.possessive_determiner + "head(s) suddenly disappeared")
 
-    interaction_command_factory("pat", normal_str="{0} pats {1}", rejected_str="{0} hand pat {0} instead while "
-                                                                               "trying to pat {1}")
+    interaction_command_factory("pat",
+                                normal=author + "pats" + MaybeReflexive(author, valid),
+                                reject=author + "pat" + author.reflexive + "in confusion while trying to pat"
+                                       + rejected.object)
 
-    interaction_command_factory("cookie", normal_str="{0} gives a cookie to {1}",
-                                rejected_str="{1} threw off the cookie")
+    interaction_command_factory("cookie",
+                                normal=author + "gives a cookie to" + MaybeReflexive(author, valid),
+                                reject=rejected + "threw off the cookie")
 
-    interaction_command_factory("attack", normal_str="{0} attacks {1}", rejected_str="{1} threw off the cookie",
-                                condition=operator.ne)
+    interaction_command_factory("attack",
+                                normal=author + "attacks" + MaybeReflexive(author, valid),
+                                reject=rejected + "teleported away from" + author.object,
+                                condition_predicate=operator.ne)
 
-    interaction_command_factory("boop", normal_str="{0} boops {1}", rejected_str="{1} had no nose")
+    interaction_command_factory("boop",
+                                normal=author + "boops" + MaybeReflexive(author, valid),
+                                reject=rejected + "had no nose")
 
-    interaction_command_factory("cuddle", normal_str="{0} cuddles with {1}",
-                                rejected_str="{1} looked at you in confusion and walked away")
+    interaction_command_factory("cuddle",
+                                normal=author + "cuddles with" + MaybeReflexive(author, valid),
+                                reject=rejected + "looked at you in confusion and walked away")
 
-    interaction_command_factory("cake", normal_str="{0} gives cake to {1}",
-                                rejected_str="the cake turned into ash when it was given to {1}")
+    interaction_command_factory("cake",
+                                normal=author + "gives a cake to" + MaybeReflexive(author, valid),
+                                reject="the cake turned into ash when it was given to" + rejected.object)
 
 
 def setup(bot):

@@ -5,7 +5,7 @@ import humanize
 from discord.ext import commands
 
 from util.human_join_list import human_join_list
-from util.pronouns import figure_pronouns
+from phrase.pronouns import figure_pronouns
 
 
 class InfoCog(commands.Cog):

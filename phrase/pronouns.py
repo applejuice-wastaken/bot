@@ -10,8 +10,8 @@ import discord
 
 @dataclass(frozen=True, eq=True)
 class Pronoun:
-    pronoun_subject: str
-    pronoun_object: str
+    subject: str
+    object: str
     possessive_determiner: str
     possessive_pronoun: str
     reflexive: str
@@ -19,18 +19,33 @@ class Pronoun:
 
     def __str__(self):
         if self.normative:
-            return f"{self.pronoun_subject}/{self.pronoun_object}"
+            return f"{self.subject}/{self.object}"
 
         else:
-            return f"{self.pronoun_subject}/{self.pronoun_object}/{self.possessive_determiner}/" \
-                   f"{self.possessive_pronoun}/{self.reflexive}"
+            return "/".join(self.to_tuple())
+
+    @classmethod
+    def pronounless(cls, user):
+        a = user.mention
+        b = f"{user.mention}'s"
+        return cls(a, a, b, b, f"{user.mention}self")
+
+    def to_tuple(self):
+        return self.subject, self.object, self.possessive_determiner, self.possessive_pronoun, self.reflexive
 
 
-cache = {"he": Pronoun("he", "him", "his", "his", "himself", True),
-         "she": Pronoun("she", "her", "her", "hers", "herself", True),
-         "they": Pronoun("they", "them", "their", "theirs", "themselves", True)}
+cache = {
+    "he": Pronoun("he", "him", "his", "his", "himself", True),
+    "she": Pronoun("she", "her", "her", "hers", "herself", True),
+    "they": Pronoun("they", "them", "their", "theirs", "themselves", True),
+    "i": Pronoun("I", "me", "my", "mine", "myself"),
+    "we": Pronoun("we", "us", "our", "ours", "ourselves")
+}
 
 default = cache["they"]
+collective = cache["they"]
+self = cache["i"]
+self_collective = cache["we"]
 
 
 async def figure_pronouns(member: discord.Member, *, return_default=True,
@@ -65,9 +80,8 @@ async def figure_pronouns(member: discord.Member, *, return_default=True,
                 available.append(pronoun)
 
         elif role.name == "nameself":
-            a = member.mention
-            b = f"{member.mention}'s"
-            pronoun = Pronoun(a, a, b, b, f"{member.mention}self")
+            pronoun = Pronoun.pronounless(member)
+
             return [pronoun] if return_multiple else pronoun
 
     if available:
@@ -97,8 +111,14 @@ async def fetch_pronoun(subject: str) -> typing.Optional[Pronoun]:
                 return None
 
             else:
+                json["morphemes"]["subject"] = json["morphemes"]["pronoun_subject"]
+                json["morphemes"]["object"] = json["morphemes"]["pronoun_object"]
+
+                del json["morphemes"]["pronoun_subject"]
+                del json["morphemes"]["pronoun_object"]
+
                 pronoun = Pronoun(**json["morphemes"])
 
-                cache[pronoun.pronoun_subject] = pronoun
+                cache[pronoun.subject] = pronoun
 
                 return pronoun
