@@ -26,9 +26,9 @@ class Pronoun:
 
     @classmethod
     def pronounless(cls, user):
-        a = user.mention
-        b = f"{user.mention}'s"
-        return cls(a, a, b, b, f"{user.mention}self")
+        a = f"`\u200b{user.display_name}\u200b`"
+        b = f"{a}'s"
+        return cls(a, a, b, b, f"{a}self")
 
     def to_tuple(self):
         return self.subject, self.object, self.possessive_determiner, self.possessive_pronoun, self.reflexive
