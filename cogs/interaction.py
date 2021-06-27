@@ -62,7 +62,7 @@ def interaction_command_factory(name, *,
             baking.extend(normal)
 
         if allowed and (role_denied or condition_denied):
-            baking.append("but")
+            baking.append("however")
 
         if role_denied:
             baking.extend(reject)
