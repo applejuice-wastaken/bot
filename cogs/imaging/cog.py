@@ -47,17 +47,6 @@ class BadImageInput(Exception):
     pass
 
 
-def open_flags(*flags_bin):
-    ret = []
-
-    try:
-        for flag in flags_bin:
-            ret.append(Image.open(BytesIO(flag)))
-    except Image.UnidentifiedImageError as e:
-        raise BadImageInput from e
-
-    return ret[0] if len(ret) == 1 else ret
-
 
 def stitch_flags(size, *flags: Image):
     mask = Image.new("L", size, 0)
@@ -98,7 +87,7 @@ def generic_flag_command(name):
                 user_bin = await ctx.author.avatar_url_as().read()
 
                 try:
-                    user = await self.execute(open_flags, user_bin)
+                    user = await self.execute(Image.open, BytesIO(user_bin))
 
                     io = await self.execute(func, self, user, flag)
 
@@ -122,13 +111,20 @@ def generic_flag_command(name):
 
             async with ctx.typing():
                 opened_flags = []
+                flags_url = {}
+
                 for flag in flags:
-                    opened_flags.append(await flag.open())
+                    if flag.url in flags_url:
+                        opened_flags.append(flags_url[flag.url])
+                    else:
+                        image = await flag.open()
+                        opened_flags.append(image)
+                        flags_url[flag.url] = image
 
                 user_bin = await ctx.author.avatar_url_as().read()
 
                 try:
-                    user = await self.execute(open_flags, user_bin)
+                    user = await self.execute(Image.open, BytesIO(user_bin))
 
                     stitched_flag = await self.execute(stitch_flags, user.size, *opened_flags)
 
@@ -227,8 +223,15 @@ class Imaging(commands.Cog):
                 return
 
             opened_flags = []
+            flags_url = {}
+
             for flag in flags:
-                opened_flags.append(await flag.open())
+                if flag.url in flags_url:
+                    opened_flags.append(flags_url[flag.url])
+                else:
+                    image = await flag.open()
+                    opened_flags.append(image)
+                    flags_url[flag.url] = image
 
             try:
                 stitched_flag = await self.execute(stitch_flags, opened_flags[0].size, *opened_flags)
@@ -270,7 +273,7 @@ class Imaging(commands.Cog):
     async def manage_bot_avatar(self):
         await self.bot.wait_until_ready()
 
-        image = await self.execute(open_flags, await self.bot.user.avatar_url_as().read())
+        image = await self.execute(Image.open, BytesIO(await self.bot.user.avatar_url_as().read()))
 
         self.avatar_hash = imagehash.average_hash(image)
 
