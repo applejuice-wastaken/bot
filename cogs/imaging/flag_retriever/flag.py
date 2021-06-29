@@ -4,14 +4,13 @@ import asyncio
 from functools import partial
 from io import BytesIO, StringIO
 
+import aiofiles
 import aiohttp
 from PIL import Image
 from discord.ext import commands
-
-import aiofiles
 from reportlab.graphics import renderPM
-
 from svglib.svglib import svg2rlg
+
 
 class Flag:
     def __init__(self, url, name, provider, *, is_remote=False):

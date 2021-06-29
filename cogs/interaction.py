@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import operator
 import re
@@ -8,19 +7,19 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import MemberConverter, BadArgument
 
-from phrase.build import DeferredReference, build, MaybeReflexive, Reference
+from phrase.build import DeferredReference, build, MaybeReflexive
 
 author = DeferredReference("action_author")
 valid = DeferredReference("valid")
 rejected = DeferredReference("rejected")
 condition = DeferredReference("condition")
 
+
 def interaction_command_factory(name, *,
                                 normal: list,
                                 reject: list,
                                 condition_rejected: list = author + "could not do this to" + author.reflexive,
                                 condition_predicate=lambda _, __: True):
-
     async def command(self, ctx, *users: RelativeMemberConverter):
 
         message = await make_response(self, ctx, *users)

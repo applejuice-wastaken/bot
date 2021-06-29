@@ -1,8 +1,7 @@
+import difflib
 import typing
 
 import aiohttp
-
-import difflib
 
 from . import Flag
 from .abc import FlagRetriever

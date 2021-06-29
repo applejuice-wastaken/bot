@@ -1,4 +1,3 @@
-import asyncio
 import pathlib
 import sys
 import traceback

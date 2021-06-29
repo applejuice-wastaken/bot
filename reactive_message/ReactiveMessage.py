@@ -91,6 +91,7 @@ def checks_updates(function=None, *, always=False):
                 should_update = await func(self, *args, **kwargs)
                 if should_update or always:
                     await self.update()
+
         return wrapper
 
     if function is None:

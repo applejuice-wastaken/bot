@@ -1,14 +1,11 @@
 import asyncio
-import datetime
-
-from collections import deque
 import dataclasses
-from typing import Dict, Any
+import datetime
+from collections import deque
 
 import discord
 from discord.ext import commands
 
-from reactive_message.ReactiveMessage import ReactiveMessage
 from util.human_join_list import human_join_list
 
 
@@ -21,6 +18,7 @@ class Record:
     pinged_users: set = dataclasses.field(default_factory=set)
     pinged_everyone: bool = False
     times: int = 1
+
 
 class Moderation(commands.Cog):
     DOWN = "\U0001f53d"

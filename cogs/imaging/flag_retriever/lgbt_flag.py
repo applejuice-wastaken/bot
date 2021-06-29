@@ -1,13 +1,10 @@
 import typing
+import urllib.parse
 
 import aiohttp
 
-import difflib
-
 from . import Flag
 from .abc import FlagRetriever
-
-import urllib.parse
 
 
 class LGBTFlagRetriever(FlagRetriever):
@@ -50,7 +47,6 @@ class LGBTFlagRetriever(FlagRetriever):
                                     async with session.get(f"https://lgbta.wikia.org/api.php?action=query&titles="
                                                            f"{urllib.parse.quote(image_title)}&prop=imageinfo"
                                                            f"&iiprop=url&format=json") as alternative_image_response:
-
                                         json_content = await alternative_image_response.json()
                                         print(json_content)
                                         pages = json_content["query"]["pages"]

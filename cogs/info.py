@@ -4,8 +4,8 @@ import discord
 import humanize
 from discord.ext import commands
 
-from util.human_join_list import human_join_list
 from phrase.pronouns import figure_pronouns
+from util.human_join_list import human_join_list
 
 
 class InfoCog(commands.Cog):
@@ -73,8 +73,10 @@ class InfoCog(commands.Cog):
 
         await ctx.send(embed=embed)
 
+
 def date(d):
     return f"At {humanize.naturaldate(d)} (or {humanize.naturaltime(d)})"
+
 
 def setup(bot):
     bot.add_cog(InfoCog(bot))

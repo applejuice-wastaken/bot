@@ -1,23 +1,20 @@
 import asyncio
 import datetime
 import inspect
+import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from io import BytesIO
-import os
-
-import discord
-from PIL import Image, ImageStat
 
 import aiohttp
+import discord
+import imagehash
+from PIL import Image, ImageStat
 from PIL.ImageDraw import ImageDraw
 from discord.ext import commands
 
 from .bot_avatar import get_new_avatar
 from .flag_retriever.flag import Flag
-
-import imagehash
-
 from .resize import center_resize
 
 
@@ -45,7 +42,6 @@ def asset_path(name):
 
 class BadImageInput(Exception):
     pass
-
 
 
 def stitch_flags(size, *flags: Image):

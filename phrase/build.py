@@ -1,11 +1,13 @@
 import abc
 
-from phrase.pronouns import Pronoun, figure_pronouns, collective
 from phrase import pronouns
+from phrase.pronouns import Pronoun, figure_pronouns
 from util.human_join_list import human_join_list
+
 
 class _Fragment(abc.ABC):
     """Base class that allows addition for more straightforward templating"""
+
     @classmethod
     def _compute_add(cls, this, other):
         if not isinstance(this, _FragmentList):
@@ -22,8 +24,10 @@ class _Fragment(abc.ABC):
     def __radd__(self, other):
         return self._compute_add(other, self)
 
+
 class _FragmentList(_Fragment, list):
     pass
+
 
 class _Resolvable(abc.ABC):
     """Base class that resolves self to a string or another resolvable"""
@@ -105,6 +109,7 @@ class _ReferenceMorpheme(_Fragment, _Resolvable):
 
         return human_join_list(list_baking)
 
+
 class Reference(_Fragment, _Resolvable):
     what = _ReferenceMorpheme
 
@@ -147,6 +152,7 @@ class MaybeReflexive(_Fragment, _Resolvable):
             target = target.reference
 
         return await target.object.resolve(referenced, speaker, author.users, **replace)
+
 
 async def build(fragments: list, *, speaker=None, author=None, **replace):
     ret = []

@@ -1,7 +1,6 @@
 import random
 import typing
 from dataclasses import dataclass
-import dataclasses
 from json.decoder import JSONDecodeError
 
 import aiohttp

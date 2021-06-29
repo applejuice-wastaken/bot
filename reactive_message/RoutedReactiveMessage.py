@@ -41,6 +41,7 @@ class Page(ABC):
     async def on_route_change(self):
         pass
 
+
 class Route:
     def __init__(self):
         self.routes = {}

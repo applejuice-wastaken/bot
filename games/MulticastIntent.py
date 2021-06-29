@@ -1,7 +1,6 @@
-import asyncio
-from typing import TypeVar, Generic, Iterable
-
 import abc
+import asyncio
+from typing import TypeVar, Iterable
 
 T = TypeVar('T')
 
@@ -40,6 +39,7 @@ class AbstractMulticastIntent(abc.ABC):
     @abc.abstractmethod
     def get_targets(self):
         pass
+
 
 class ArbitraryMulticastIntent(AbstractMulticastIntent):
     def __init__(self, targets):

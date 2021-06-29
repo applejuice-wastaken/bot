@@ -1,14 +1,11 @@
-import typing
-
-import aiofiles
-import pathlib
-
-import os
-
 import difflib
+import os
+import pathlib
+import typing
 
 from . import Flag
 from .abc import FlagRetriever
+
 
 def folder_path(name=None):
     self_dir = os.path.dirname(__file__)
@@ -16,6 +13,7 @@ def folder_path(name=None):
         return os.path.join(self_dir, 'local')
     else:
         return os.path.join(self_dir, 'local', name)
+
 
 class LocalFlagRetriever(FlagRetriever):
     def __init__(self):

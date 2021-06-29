@@ -1,12 +1,11 @@
 import functools
+import typing
 
 from async_lru import alru_cache
 
 from .abc import FlagRetriever
-
 from .flag import Flag
 
-import typing
 
 @functools.lru_cache()
 def get_retrievers() -> typing.List[FlagRetriever]:
@@ -15,6 +14,7 @@ def get_retrievers() -> typing.List[FlagRetriever]:
     from .local_flag import LocalFlagRetriever
 
     return [LocalFlagRetriever(), CountryFlagRetriever(), LGBTFlagRetriever()]
+
 
 @alru_cache
 async def get_flag(name, schema=None) -> typing.Optional[Flag]:

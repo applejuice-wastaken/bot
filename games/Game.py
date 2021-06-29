@@ -3,7 +3,7 @@ import asyncio
 from contextlib import suppress
 from enum import Enum
 from functools import partial
-from typing import List, TypeVar, Dict, Union
+from typing import Dict, Union
 
 import discord
 from discord import TextChannel
@@ -23,6 +23,7 @@ class EndGame(Enum):
 class LeaveReason(Enum):
     CHANNEL_BLOCKED = 0
     BY_COMMAND = 1
+
 
 class PlayerList(AbstractMulticastIntent, list):
     def get_targets(self):
