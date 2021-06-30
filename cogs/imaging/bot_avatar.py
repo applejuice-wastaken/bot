@@ -14,9 +14,9 @@ def path(*args):
 async def get_new_avatar(cog):
     original: Image.Image = await cog.execute(Image.open, path("quantum.png"))
 
-    now = datetime.datetime.now()
+    now = datetime.datetime(year=2021, month=5, day=29)
 
-    if now.month == 6:
+    if now.month in (5, 6, 7):
         # happy pride month
 
         flag = await get_flag("gay")
@@ -28,6 +28,22 @@ async def get_new_avatar(cog):
         flag_image: Image.Image
         flag_image = center_resize(flag_image, *original.size)
 
-        original.paste(flag_image, mask=original)
+        blending = None
+
+        if now.month == 7:
+            # transition to default
+            blending = max(1 - (now.day / 10), 0)
+
+        elif now.month == 5:
+            # transition to flag
+            blending = max((now.day - 21) / 10, 0)
+
+        if blending is None:
+            original.paste(flag_image, mask=original)
+        else:
+            with_flag = Image.composite(flag_image, original, mask=original).convert("RGBA")
+            original = Image.blend(original, with_flag, blending)
+
+    original.save("img.png")
 
     return original

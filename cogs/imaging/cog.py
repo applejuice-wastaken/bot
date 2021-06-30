@@ -161,8 +161,6 @@ class Imaging(commands.Cog):
 
         self.cooldown_mapping = commands.CooldownMapping.from_cooldown(1, 5.0, commands.BucketType.user)
 
-        self.avatar_hash = None
-
         self.bot.loop.create_task(self.manage_bot_avatar())
 
     async def cog_before_invoke(self, ctx):
@@ -267,11 +265,8 @@ class Imaging(commands.Cog):
         return self.loop.run_in_executor(self.process_pool, partial(func, *args, **kwargs))
 
     async def manage_bot_avatar(self):
+        await asyncio.sleep(60 * 10)
         await self.bot.wait_until_ready()
-
-        image = await self.execute(Image.open, BytesIO(await self.bot.user.avatar_url_as().read()))
-
-        self.avatar_hash = imagehash.average_hash(image)
 
         while True:
             await self.change_bot_avatar()
@@ -280,18 +275,17 @@ class Imaging(commands.Cog):
     async def change_bot_avatar(self):
         avatar = await get_new_avatar(self)
         io = await self.execute(image_as_io(lambda sf: sf), avatar)
-        hash = imagehash.average_hash(avatar)
-        if self.avatar_hash - hash > 4:
-            trying = True
-            while trying:
-                try:
-                    await self.bot.user.edit(avatar=io.read())
-                    self.avatar_hash = hash
-                    trying = False
-                except discord.HTTPException:
-                    pass
 
-                await asyncio.sleep(60 * 10)
+        trying = True
+        while trying:
+            try:
+                await self.bot.user.edit(avatar=io.read())
+                trying = False
+            
+            except discord.HTTPException:
+                pass
+
+            await asyncio.sleep(60 * 10)
 
 
 def time_until_end_of_day(dt=None):
