@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import inspect
 import os
+import typing
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
 from io import BytesIO
@@ -68,19 +69,33 @@ def stitch_flags(size, *flags: Image):
 
     return ret
 
+async def try_get_image(ctx: commands.Context, user: typing.Optional[discord.Member]):
+    if ctx.message.reference is not None and ctx.message.reference.attachments:
+        return await ctx.message.reference.attachments[0].read()
+
+    elif ctx.message.attachments:
+        return await ctx.message.attachments[0].read()
+
+    elif user is not None:
+        return await user.avatar_url_as().read()
+
+    else:
+        return await ctx.author.avatar_url_as().read()
+
 
 def generic_flag_command(name):
     def wrapper(func):
         func = image_as_io(func)
 
-        async def command(self, ctx, *, flag: Flag):
+        async def command(self, ctx, user: typing.Optional[discord.Member], *, flag: Flag):
             self: Imaging
 
             await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
 
             async with ctx.typing():
                 flag = await flag.open()
-                user_bin = await ctx.author.avatar_url_as().read()
+
+                user_bin = await try_get_image(ctx, user)
 
                 try:
                     user = await self.execute(Image.open, BytesIO(user_bin))
@@ -92,7 +107,7 @@ def generic_flag_command(name):
                 else:
                     await ctx.send(file=discord.File(io, "output.png"))
 
-        async def mixin(self, ctx, *flags: Flag):
+        async def mixin(self, ctx, user: typing.Optional[discord.Member], *flags: Flag):
             if len(flags) == 0:
                 await ctx.send(f"no flags provided")
                 return
@@ -117,7 +132,7 @@ def generic_flag_command(name):
                         opened_flags.append(image)
                         flags_url[flag.url] = image
 
-                user_bin = await ctx.author.avatar_url_as().read()
+                user_bin = await try_get_image(ctx, user)
 
                 try:
                     user = await self.execute(Image.open, BytesIO(user_bin))
