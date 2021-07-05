@@ -14,7 +14,7 @@ def path(*args):
 async def get_new_avatar(cog):
     original: Image.Image = await cog.execute(Image.open, path("quantum.png"))
 
-    now = datetime.datetime(year=2021, month=5, day=29)
+    now = datetime.datetime.now()
 
     if now.month in (5, 6, 7):
         # happy pride month
