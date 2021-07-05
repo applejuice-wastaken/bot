@@ -70,17 +70,19 @@ def stitch_flags(size, *flags: Image):
     return ret
 
 async def try_get_image(ctx: commands.Context, user: typing.Optional[discord.Member]):
-    if ctx.message.reference is not None and ctx.message.reference.attachments:
+
+    if ctx.message.reference is None:
+        target = ctx.message
+    else:
+        target = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+
+    target: discord.Message
+
+    if target.attachments:
         return await ctx.message.reference.attachments[0].read()
 
-    elif ctx.message.attachments:
-        return await ctx.message.attachments[0].read()
-
-    elif user is not None:
-        return await user.avatar_url_as().read()
-
     else:
-        return await ctx.author.avatar_url_as().read()
+        return await target.author.avatar_url_as().read()
 
 
 def generic_flag_command(name):
