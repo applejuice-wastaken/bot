@@ -81,7 +81,7 @@ async def try_get_image(ctx: commands.Context, user: typing.Optional[discord.Mem
     target: discord.Message
 
     if target.attachments:
-        return await ctx.message.reference.attachments[0].read()
+        return await target.attachments[0].read()
 
     else:
         return await target.author.avatar_url_as().read()
