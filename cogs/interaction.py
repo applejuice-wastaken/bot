@@ -33,10 +33,17 @@ def interaction_command_factory(name, *,
     command.__doc__ = f"executes a {name} action towards selected users, if allowed"
 
     async def make_response(self, ctx, *users: discord.Member):
-        users: List[discord.Member]
+        users: List[discord.Member] = list(users)
 
         if not self.user_accepts(ctx.author, name, "thing"):
             return await ctx.send(f"But you don't like that")
+
+        if ctx.message.reference is not None:
+            referenced: discord.Message
+            referenced = (ctx.message.reference.cached_message or
+                          await ctx.message.channel.fetch_message(ctx.message.reference.message_id))
+
+            users.append(referenced.author)
 
         allowed = []
         role_denied = []
