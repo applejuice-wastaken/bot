@@ -164,7 +164,9 @@ def generic_flag_command(name):
 
 def find_mean_color(image):
     if not isinstance(image, Image.Image):
-        image = Image.open(BytesIO(image)).convert("RGB")
+        image = Image.open(BytesIO(image))
+
+    image = image.convert("RGB")
 
     stat = ImageStat.Stat(image)
 
@@ -218,6 +220,7 @@ class Imaging(commands.Cog):
             io = await self.execute(image_as_io(lambda sf: sf), opened_flag)
 
             file = discord.File(io, filename="v.png")
+            print(pix)
             e = discord.Embed(color=discord.Color.from_rgb(*pix[:3]))
             e.set_image(url="attachment://v.png")
             await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)

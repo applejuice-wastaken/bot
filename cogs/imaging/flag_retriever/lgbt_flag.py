@@ -40,19 +40,22 @@ class LGBTFlagRetriever(FlagRetriever):
                                                    f"{urllib.parse.quote(first_page_title)}&format=json") as content_response:
 
                                 json_content = await content_response.json()
-                                images = json_content["query"]["pages"][str(first_page_id)]["images"]
 
-                                if images:
-                                    image_title = images[0]["title"]
-                                    async with session.get(f"https://lgbta.wikia.org/api.php?action=query&titles="
-                                                           f"{urllib.parse.quote(image_title)}&prop=imageinfo"
-                                                           f"&iiprop=url&format=json") as alternative_image_response:
-                                        json_content = await alternative_image_response.json()
-                                        print(json_content)
-                                        pages = json_content["query"]["pages"]
-                                        page = pages[list(pages)[0]]
-                                        return Flag(page["imageinfo"][0]["url"], first_page_title,
-                                                    str(self), is_remote=True)
+                                if "error" not in json_content and\
+                                        "images" in json_content["query"]["pages"][str(first_page_id)]:
+                                    images = json_content["query"]["pages"][str(first_page_id)]["images"]
+
+                                    if images:
+                                        image_title = images[0]["title"]
+                                        async with session.get(f"https://lgbta.wikia.org/api.php?action=query&titles="
+                                                               f"{urllib.parse.quote(image_title)}&prop=imageinfo"
+                                                               f"&iiprop=url&format=json") as alternative_image_response:
+                                            json_content = await alternative_image_response.json()
+                                            print(json_content)
+                                            pages = json_content["query"]["pages"]
+                                            page = pages[list(pages)[0]]
+                                            return Flag(page["imageinfo"][0]["url"], first_page_title,
+                                                        str(self), is_remote=True)
 
         return None
 
