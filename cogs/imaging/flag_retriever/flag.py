@@ -31,7 +31,7 @@ class Flag:
     async def open(self):
         data = await self.read()
 
-        if data.startswith(b"<svg"):
+        if b"<svg" in data:
             # maybe svg
             drawing = svg2rlg(StringIO(data.decode()))
             io = BytesIO()
