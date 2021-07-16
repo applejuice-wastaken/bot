@@ -143,20 +143,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
-    @commands.command()
-    async def purge_until(self, ctx, message_id: int):
-        """purges messages until message_id"""
-        messages = await ctx.channel.history(limit=1000, after=discord.Object(message_id)).flatten()
-
-        if len(messages) <= 1:
-            await ctx.send("Insufficient amount of messages")
-        else:
-            await self.purge_action(ctx, messages)
-
-    @commands.guild_only()
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
-    @commands.command()
+    @commands.group(invoke_without_command=True)
     async def purge(self, ctx, quantity: int):
         """purges an amount of messages sorted by newest"""
         if quantity <= 1:
@@ -164,6 +151,19 @@ class Moderation(commands.Cog):
         else:
             messages = await ctx.channel.history(limit=quantity + 1).flatten()
 
+            await self.purge_action(ctx, messages)
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
+    @purge.command(name="until")
+    async def purge_until(self, ctx, message_id: int):
+        """purges messages until message_id"""
+        messages = await ctx.channel.history(limit=1000, after=discord.Object(message_id)).flatten()
+
+        if len(messages) <= 1:
+            await ctx.send("Insufficient amount of messages")
+        else:
             await self.purge_action(ctx, messages)
 
     @commands.Cog.listener()
