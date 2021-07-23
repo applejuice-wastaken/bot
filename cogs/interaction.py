@@ -224,6 +224,10 @@ class Interaction(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def detects_role(self, role):
+        return (role.name.startswith("no ") or
+                (await PhraseBuilder.figure_pronouns_from_role(self.bot.user, role)) is not None)
+
     interaction_command_factory("hug",
                                 normal=author + "hugs" + MaybeReflexive(author, valid),
                                 reject=author + "hugged a lamppost in confusion while trying to hug" + rejected.object)

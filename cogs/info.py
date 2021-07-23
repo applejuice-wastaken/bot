@@ -10,7 +10,10 @@ from util.human_join_list import human_join_list
 
 class InfoCog(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: commands.Bot = bot
+
+    async def detects_role(self, role):
+        return (await PhraseBuilder.figure_pronouns_from_role(self.bot.user, role)) is not None
 
     @commands.command()
     async def info(self, ctx, user: discord.Member = None):
@@ -50,11 +53,14 @@ class InfoCog(commands.Cog):
         if pronouns is None:
             description = discord.Embed.Empty
         else:
-            if len(pronouns) < 5:
-                pronoun_str = human_join_list([str(pronoun) for pronoun in pronouns],
-                                              analyse_contents=False, end_join=' or ')
+            if len(pronouns) < 10:
+                pronouns_lines = []
+                for pronoun in pronouns:
+                    pronouns_lines.append(f"{str(pronoun)} ({pronoun.pronoun_type.name.replace('_', ' ').title()})")
+
+                pronoun_str = "\n" + "\n".join(pronouns_lines) + "\n"
             else:
-                pronoun_str = "some pronouns"
+                pronoun_str = "a lot of pronouns"
 
             description = f"I use {pronoun_str} :{random.choice(')]D>')}"
 
@@ -66,10 +72,25 @@ class InfoCog(commands.Cog):
         embed.add_field(name="Time I joined this server", value=date(user.joined_at))
         embed.add_field(name="My ID", value=str(user.id), inline=False)
 
-        roles = [role for role in user.roles if role.guild.default_role != role]
-        roles_str = human_join_list([role.mention for role in roles])
+        roles_lines = []
 
-        embed.add_field(name="Roles", value=f"{len(roles)} roles\n{roles_str}", inline=False)
+        for role in user.roles:
+            if user.guild.default_role == role:
+                continue
+
+            cog_list = []
+            for cog_name, cog in self.bot.cogs.items():
+                if hasattr(cog, "detects_role") and await cog.detects_role(role):
+                    cog_list.append(cog_name)
+
+            if cog_list:
+                roles_lines.append(f"{role.mention} (detected by {human_join_list(cog_list)} "
+                                   f"cog{'' if len(cog_list) == 1 else 's'})")
+
+            else:
+                roles_lines.append(role.mention)
+        n = "\n"
+        embed.add_field(name="Roles", value=f"{len(roles_lines)} roles\n{n.join(roles_lines)}", inline=False)
 
         await ctx.send(embed=embed)
 

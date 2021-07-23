@@ -11,6 +11,7 @@ class PronounType(enum.Enum):
     KIND_OF_NORMATIVE = enum.auto()
     NEO_PRONOUN = enum.auto()
     NO_PRONOUN = enum.auto()
+    EMOJI_PRONOUN = enum.auto()
     RUNTIME_PRONOUN = enum.auto()
 
 
@@ -33,8 +34,11 @@ class Pronoun(BaseModel):
         return v
 
     def __str__(self):
-        if self.pronoun_type:
+        if self.pronoun_type in (PronounType.NORMATIVE, PronounType.EMOJI_PRONOUN):
             return f"{self.subject}/{self.object}"
+
+        elif self.pronoun_type == PronounType.NO_PRONOUN:
+            return f"{self.subject}/{self.reflexive}"
 
         else:
             return "/".join(self.to_tuple())

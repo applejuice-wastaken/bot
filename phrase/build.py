@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from phrase import pronouns
 from phrase.pronouns import PronounType
 
+from emoji import UNICODE_EMOJI
+
 
 class _Fragment(abc.ABC):
     """Base class that allows addition for more straightforward templating"""
@@ -78,37 +80,10 @@ class PhraseBuilder:
         available = []
 
         for role in member.roles:
-            role: discord.Role
+            maybe_pronoun = await cls.figure_pronouns_from_role(member, role)
 
-            if "/" in role.name:
-                chunks = [chunk.lower() for chunk in role.name.split("/")]
-
-                pronoun = None
-
-                if len(chunks) == 5:
-                    pronoun = pronouns.Pronoun.from_tuple(*chunks,
-                                                          pronoun_type=PronounType.NEO_PRONOUN, person_class=3,
-                                                          collective=False)
-
-                elif len(chunks) == 3:
-                    pronoun = pronouns.Pronoun.from_tuple(chunks[0], chunks[0], chunks[1], chunks[1], chunks[2],
-                                                          pronoun_type=PronounType.NEO_PRONOUN, person_class=3,
-                                                          collective=False)
-
-                else:
-                    for chunk in chunks:
-                        pronoun = await cls.fetch_pronoun(chunk)
-
-                        if pronoun is not None:
-                            break
-
-                if pronoun is not None:
-                    available.append(pronoun)
-
-            elif role.name == "nameself":
-                pronoun = pronouns.Pronoun.pronounless(member)
-
-                return [pronoun] if return_multiple else pronoun
+            if maybe_pronoun is not None:
+                available.append(maybe_pronoun)
 
         if available:
             if return_multiple:
@@ -117,6 +92,44 @@ class PhraseBuilder:
                 return random.choice(available)
 
         return ([pronouns.default] if return_multiple else pronouns.default) if return_default else None
+
+    @classmethod
+    async def figure_pronouns_from_role(cls, member: discord.Member, role: discord.Role):
+        if "/" in role.name:
+            chunks = [chunk.lower() for chunk in role.name.split("/")]
+
+            if len(chunks) == 5:
+                return pronouns.Pronoun.from_tuple(*chunks,
+                                                   pronoun_type=PronounType.NEO_PRONOUN, person_class=3,
+                                                   collective=False)
+
+            elif len(chunks) == 3:
+                return pronouns.Pronoun.from_tuple(chunks[0], chunks[0], chunks[1], chunks[1], chunks[2],
+                                                   pronoun_type=PronounType.NEO_PRONOUN, person_class=3,
+                                                   collective=False)
+
+            elif len(chunks) == 2:
+                if chunks[1].endswith("self"):
+                    # probably a name of some sort
+                    return pronouns.Pronoun.pronounless(chunks[0])
+
+                elif chunks[0] == chunks[1] and chunks[0] in UNICODE_EMOJI["en"]:
+                    # probably an emoji pronoun
+                    pronoun = pronouns.Pronoun.pronounless(chunks[0])
+                    pronoun.pronoun_type = PronounType.EMOJI_PRONOUN
+                    return pronoun
+
+            # all conventional ways of getting this pronoun have failed
+            # go the hard way
+
+            for chunk in chunks:
+                pronoun = await cls.fetch_pronoun(chunk)
+
+                if pronoun is not None:
+                    return pronoun
+
+        elif role.name == "nameself":
+            return pronouns.Pronoun.pronounless(member.display_name if hasattr(member, "display_name") else member)
 
     @classmethod
     async def fetch_pronoun(cls, subject: str) -> typing.Optional[pronouns.Pronoun]:
@@ -155,11 +168,11 @@ class PhraseBuilder:
         ret = {}
 
         for defer_name, defer_user in dict_list.items():
-            ret[defer_name] = await self.convert_to_entity(defer_user)
+            ret[defer_name] = await self.convert_to_entity_collection(defer_user)
 
         return ret
 
-    async def convert_to_entity(self, users):
+    async def convert_to_entity_collection(self, users):
         if not isinstance(users, list):
             users = [users]
 
@@ -171,10 +184,10 @@ class PhraseBuilder:
         deferred = await self._identify_deferred_dict(deferred)
 
         if speaker is not None:
-            speaker = await self.convert_to_entity(speaker)
+            speaker = await self.convert_to_entity_collection(speaker)
 
         if author is not None:
-            author = await self.convert_to_entity(author)
+            author = await self.convert_to_entity_collection(author)
 
         context = BuildingContext(builder=self,
                                   building=[],
