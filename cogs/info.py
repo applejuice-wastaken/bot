@@ -53,7 +53,7 @@ class InfoCog(commands.Cog):
         if pronouns is None:
             description = discord.Embed.Empty
         else:
-            if len(pronouns) < 10:
+            if len(pronouns) < 20:
                 pronouns_lines = []
                 for pronoun in pronouns:
                     pronouns_lines.append(f"{str(pronoun)} ({pronoun.pronoun_type.name.replace('_', ' ').title()})")
