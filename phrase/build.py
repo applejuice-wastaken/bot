@@ -158,7 +158,7 @@ class PhraseBuilder:
                     del json["morphemes"]["pronoun_object"]
 
                     pronoun = pronouns.Pronoun(**json["morphemes"],
-                                               pronoun_type=PronounType.NEO_PRONOUN, person_class=3)
+                                               pronoun_type=PronounType.NEO_PRONOUN, person_class=3, collective=False)
 
                     pronouns.known_pronouns.append(pronoun)
 

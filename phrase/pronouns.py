@@ -87,6 +87,9 @@ known_pronouns = [
     Pronoun.from_tuple("they", "them", "their", "theirs", "themselves",
                                pronoun_type=PronounType.NORMATIVE, person_class=3, collective=True),
 
+    Pronoun.from_tuple("it", "it", "it's", "it's", "itself",
+                       pronoun_type=PronounType.KIND_OF_NORMATIVE, person_class=3, collective=False),
+
     Pronoun.from_tuple("I", "me", "my", "mine", "myself",
                             pronoun_type=PronounType.SENTINEL, person_class=1, collective=False),
 
