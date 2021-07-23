@@ -73,6 +73,28 @@ class InfoCog(commands.Cog):
         embed.add_field(name="My ID", value=str(user.id), inline=False)
 
         roles_lines = []
+        using = 0
+
+        first = True
+
+        def flush_roles():
+            nonlocal using
+            nonlocal first
+
+            n = "\n"
+
+            if first:
+                first = False
+                name = "Roles"
+                value = f"{len(user.roles) - 1} roles\n{n.join(roles_lines)}"
+
+            else:
+                name = "Yet More Roles"
+                value = n.join(roles_lines)
+
+            embed.add_field(name=name, value=value, inline=False)
+            roles_lines.clear()
+            using = 0
 
         for role in user.roles:
             if user.guild.default_role == role:
@@ -84,13 +106,19 @@ class InfoCog(commands.Cog):
                     cog_list.append(cog_name)
 
             if cog_list:
-                roles_lines.append(f"{role.mention} (detected by {human_join_list(cog_list)} "
-                                   f"cog{'' if len(cog_list) == 1 else 's'})")
+                to_add = f"{role.mention} (detected by {human_join_list(cog_list)} "\
+                         f"cog{'' if len(cog_list) == 1 else 's'})"
 
             else:
-                roles_lines.append(role.mention)
-        n = "\n"
-        embed.add_field(name="Roles", value=f"{len(roles_lines)} roles\n{n.join(roles_lines)}", inline=False)
+                to_add = role.mention
+
+            if (using + len(to_add) + len(roles_lines) - 1) > 900:
+                flush_roles()
+
+            roles_lines.append(to_add)
+            using += len(to_add)
+
+        flush_roles()
 
         await ctx.send(embed=embed)
 
