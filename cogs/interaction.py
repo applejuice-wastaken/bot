@@ -7,7 +7,8 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import MemberConverter, BadArgument
 
-from phrase.build import DeferredReference, build, MaybeReflexive
+from phrase.build import PhraseBuilder
+from phrase.types import DeferredReference, MaybeReflexive, was
 
 author = DeferredReference("action_author")
 valid = DeferredReference("valid")
@@ -35,7 +36,7 @@ def interaction_command_factory(name, *,
     async def make_response(self, ctx, *users: discord.Member):
         users: List[discord.Member] = list(users)
 
-        if not self.user_accepts(ctx.author, name, "thing"):
+        if not user_accepts(ctx.author, name, "thing"):
             return await ctx.send(f"But you don't like that")
 
         if ctx.message.reference is not None:
@@ -51,7 +52,7 @@ def interaction_command_factory(name, *,
 
         for user in users:
             # noinspection PyTypeChecker
-            if self.user_accepts(user, name, "thing"):
+            if user_accepts(user, name, "thing"):
                 if condition_predicate(ctx.author, user):
                     allowed.append(user)
                 else:
@@ -62,27 +63,48 @@ def interaction_command_factory(name, *,
         if not users:
             return await ctx.send("No users", allowed_mentions=discord.AllowedMentions.none())
 
-        baking = []
+        title_baking = []
 
         if allowed:
-            baking.extend(normal)
+            title_baking.extend(normal)
+
+        description_baking = []
 
         if allowed and (role_denied or condition_denied):
-            baking.append("however")
+            description_baking.append("however")
 
         if role_denied:
-            baking.extend(reject)
+            description_baking.extend(reject)
 
         if condition_denied:
-            baking.extend(condition_rejected)
+            description_baking.extend(condition_rejected)
 
-        built = await build(baking, speaker=[ctx.bot.user], action_author=ctx.author, valid=allowed,
-                            rejected=role_denied, condition=condition_rejected)
+        with PhraseBuilder() as builder:
+            title = await builder.build(title_baking, speaker=ctx.bot.user,
+                                        deferred={"action_author": ctx.author,
+                                                  "valid": allowed,
+                                                  "rejected": role_denied,
+                                                  "condition": condition_denied})
 
-        if len(built) > 500:
-            return await ctx.send("I would send it the message wasn't this long")
+            if title == "":
+                title = discord.Embed.Empty
 
-        return await ctx.send(built, allowed_mentions=discord.AllowedMentions.none())
+            elif len(title) > 256:
+                return await ctx.message.reply(embed=discord.Embed(title="(ಠ_ಠ)"),
+                                               allowed_mentions=discord.AllowedMentions.none())
+
+            description = await builder.build(description_baking, speaker=ctx.bot.user,
+                                              deferred={"action_author": ctx.author,
+                                                        "valid": allowed,
+                                                        "rejected": role_denied,
+                                                        "condition": condition_denied})
+
+            if description == "":
+                description = discord.Embed.Empty
+
+        embed = discord.Embed(title=title, description=description)
+
+        return await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     command = commands.guild_only()(commands.Command(command, name=name))
 
@@ -130,7 +152,7 @@ class RelativeMemberConverter(MemberConverter):
                 many = len(match.group(2))
                 flag = match.group(1)
 
-                if many > 5:
+                if many > 10:
                     raise TooManyExponentials(many)
 
                 last = ctx.author
@@ -138,7 +160,10 @@ class RelativeMemberConverter(MemberConverter):
                 async for message in ctx.channel.history(before=ctx.message, limit=20):
                     message: discord.Message
                     if flag == "":
-                        if message.author != last:
+                        if message.author != last or \
+                                (message.author.discriminator == "0000" and
+                                 message.author.display_name != last.display_name):
+
                             last = message.author
                             many -= 1
                             if many == 0:
@@ -181,22 +206,23 @@ def bulk_delete(sequence, **attrs):
         sequence.remove(obj)
 
 
+def user_accepts(member, *actions):
+    if isinstance(member, discord.User) or member.discriminator == "0000":
+        return True
+
+    for action in actions:
+        role = discord.utils.get(member.roles, name=f"no {action}")
+
+        allowed = role is None
+
+        if not allowed:
+            return False
+    return True
+
+
 class Interaction(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    def user_accepts(self, member, *actions):
-        if isinstance(member, discord.User) or member.discriminator == "0000":
-            return True
-
-        for action in actions:
-            role = discord.utils.get(member.roles, name=f"no {action}")
-
-            allowed = role is None
-
-            if not allowed:
-                return False
-        return True
 
     interaction_command_factory("hug",
                                 normal=author + "hugs" + MaybeReflexive(author, valid),
@@ -208,25 +234,25 @@ class Interaction(commands.Cog):
 
     interaction_command_factory("slap",
                                 normal=author + "slaps" + MaybeReflexive(author, valid),
-                                reject=rejected + "did some weird scooching and avoided" +
-                                       author.possessive_determiner + "slap",
+                                reject=(rejected + "did some weird scooching and avoided" +
+                                        author.possessive_determiner + "slap"),
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("kill",
                                 normal=author + "kills" + MaybeReflexive(author, valid),
-                                reject=rejected + "used the totem of undying when" + rejected + "were about to die",
+                                reject=rejected + "used the totem of undying when" + rejected + was + "about to die",
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("stab",
                                 normal=author + "stabs" + MaybeReflexive(author, valid),
-                                reject=author.possessive_determiner + "knife turned into flowers when it was" +
-                                       rejected.possessive_determiner + "turn",
+                                reject=(author.possessive_determiner + "knife turned into flowers when it was" +
+                                        rejected.possessive_determiner + "turn"),
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("stare",
                                 normal=author + "stares at" + MaybeReflexive(author, valid),
-                                reject=rejected + "turned invisible and" + author +
-                                       "was unable to stare at" + rejected.object)
+                                reject=(rejected + "turned invisible and" + author +
+                                        "was unable to stare at" + rejected.object))
 
     interaction_command_factory("lick",
                                 normal=author + "licks" + MaybeReflexive(author, valid),
@@ -238,8 +264,8 @@ class Interaction(commands.Cog):
 
     interaction_command_factory("pat",
                                 normal=author + "pats" + MaybeReflexive(author, valid),
-                                reject=author + "pat" + author.reflexive + "in confusion while trying to pat"
-                                       + rejected.object)
+                                reject=(author + "pat" + author.reflexive + "in confusion while trying to pat"
+                                        + rejected.object))
 
     interaction_command_factory("cookie",
                                 normal=author + "gives a cookie to" + MaybeReflexive(author, valid),
@@ -260,8 +286,8 @@ class Interaction(commands.Cog):
 
     interaction_command_factory("cake",
                                 normal=author + "gives a cake to" + MaybeReflexive(author, valid),
-                                reject=author.possessive_determiner + "cake caught fire when" + author +
-                                       "was giving it to" + rejected.object)
+                                reject=(author.possessive_determiner + "cake caught fire when" + author +
+                                        was + "was giving it to" + rejected.object))
 
 
 def setup(bot):

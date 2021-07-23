@@ -1,8 +1,14 @@
 import abc
+import random
+import typing
+from json import JSONDecodeError
+
+import aiohttp
+import discord
+from pydantic import BaseModel
 
 from phrase import pronouns
-from phrase.pronouns import Pronoun, figure_pronouns
-from util.human_join_list import human_join_list
+from phrase.pronouns import PronounType
 
 
 class _Fragment(abc.ABC):
@@ -33,139 +39,170 @@ class _Resolvable(abc.ABC):
     """Base class that resolves self to a string or another resolvable"""
 
     @abc.abstractmethod
-    async def resolve(self, referenced, speaker, author, **replace):
+    async def resolve(self, context: "BuildingContext", self_idx: typing.Optional[int]):
         pass
 
 
-class _DeferredReferenceMorpheme(_Fragment, _Resolvable):
-    def __init__(self, deferred_reference, morpheme):
-        self.deferred_reference = deferred_reference
-        self.morpheme = morpheme
+class Entity:
+    def __init__(self, id_, name: str, pronoun: pronouns.Pronoun):
+        self.id = id_
 
-    async def resolve(self, referenced, speaker, author, **replace):
-        if self.deferred_reference.identifier in replace:
-            reference = Reference(replace[self.deferred_reference.identifier])
-            return _ReferenceMorpheme(reference, self.morpheme)
+        self.name = name
+        self.pronounless = pronouns.Pronoun.pronounless(self.name)
+        self.pronoun = pronoun
 
-        else:
-            raise RuntimeError(f"{self.deferred_reference.identifier} has no replacement")
+    def __eq__(self, other):
+        return isinstance(other, Entity) and self.id == other.id
 
 
-class DeferredReference(_Fragment, _Resolvable):
-    def __init__(self, identifier):
-        self.identifier = identifier
+class PhraseBuilder:
+    def __init__(self):
+        self.referenced = []
 
-    async def resolve(self, referenced, speaker, author, **replace):
-        if self.identifier in replace:
-            return Reference(replace[self.identifier])
+    def __enter__(self):
+        return self
 
-        else:
-            raise RuntimeError(f"{self.identifier} has no replacement")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
-    def __getattr__(self, item):
-        return _DeferredReferenceMorpheme(self, item)
+    @classmethod
+    async def figure_pronouns(cls, member: discord.Member, *,
+                              return_default=True,
+                              return_multiple=False) -> typing.Union[None,
+                                                                     pronouns.Pronoun,
+                                                                     typing.List[pronouns.Pronoun]]:
 
+        if not hasattr(member, "roles"):
+            return ([pronouns.default] if return_multiple else pronouns.default) if return_default else None
 
-class _ReferenceMorpheme(_Fragment, _Resolvable):
-    def __init__(self, reference, morpheme):
-        self.reference = reference
-        self.morpheme = morpheme
+        available = []
 
-    async def resolve(self, referenced, speaker, author, **replace):
-        list_baking = []
+        for role in member.roles:
+            role: discord.Role
 
-        if self.reference.collective and self.reference.users in referenced:
-            morpheme = self.morpheme
+            if "/" in role.name:
+                chunks = [chunk.lower() for chunk in role.name.split("/")]
 
-            if author is not None and author == self.reference.users and morpheme == "object":
-                morpheme = "reflexive"
+                pronoun = None
 
-            pronoun = pronouns.collective
-            if speaker is not None and all(s in self.reference.users for s in speaker):
-                pronoun = pronouns.self_collective
+                if len(chunks) == 5:
+                    pronoun = pronouns.Pronoun.from_tuple(*chunks,
+                                                          pronoun_type=PronounType.NEO_PRONOUN, person_class=3,
+                                                          collective=False)
 
-            list_baking.append(getattr(pronoun, morpheme))
-        else:
-            for user in self.reference.users:
-                if speaker is not None and len(speaker) == 1 and speaker[0] == user:
-                    pronoun = pronouns.self
-
-                elif user in referenced:
-                    pronoun = await figure_pronouns(user)
+                elif len(chunks) == 3:
+                    pronoun = pronouns.Pronoun.from_tuple(chunks[0], chunks[0], chunks[1], chunks[1], chunks[2],
+                                                          pronoun_type=PronounType.NEO_PRONOUN, person_class=3,
+                                                          collective=False)
 
                 else:
-                    pronoun = Pronoun.pronounless(user)
-                    referenced.append(user)
+                    for chunk in chunks:
+                        pronoun = await cls.fetch_pronoun(chunk)
 
-                morpheme = self.morpheme
+                        if pronoun is not None:
+                            break
 
-                if author is not None and len(author) == 1 and author[0] == user and morpheme == "object":
-                    morpheme = "reflexive"
+                if pronoun is not None:
+                    available.append(pronoun)
 
-                list_baking.append(getattr(pronoun, morpheme))
+            elif role.name == "nameself":
+                pronoun = pronouns.Pronoun.pronounless(member)
 
-            if self.reference.collective:
-                referenced.append(self.reference.users)
+                return [pronoun] if return_multiple else pronoun
 
-        return human_join_list(list_baking)
+        if available:
+            if return_multiple:
+                return available
+            else:
+                return random.choice(available)
 
+        return ([pronouns.default] if return_multiple else pronouns.default) if return_default else None
 
-class Reference(_Fragment, _Resolvable):
-    what = _ReferenceMorpheme
+    @classmethod
+    async def fetch_pronoun(cls, subject: str) -> typing.Optional[pronouns.Pronoun]:
+        pronoun = pronouns.find_pronoun(subject, person_class=3)
+        if pronoun:
+            return pronoun
 
-    def __init__(self, users: list):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://en.pronouns.page/api/pronouns/{subject}") as response:
+                body = await response.text()
+
+                if body == "":
+                    return None
+
+                try:
+                    json = await response.json()
+
+                except JSONDecodeError:
+                    return None
+
+                else:
+                    json["morphemes"]["subject"] = json["morphemes"]["pronoun_subject"]
+                    json["morphemes"]["object"] = json["morphemes"]["pronoun_object"]
+
+                    del json["morphemes"]["pronoun_subject"]
+                    del json["morphemes"]["pronoun_object"]
+
+                    pronoun = pronouns.Pronoun(**json["morphemes"],
+                                               pronoun_type=PronounType.NEO_PRONOUN, person_class=3)
+
+                    pronouns.known_pronouns.append(pronoun)
+
+                    return pronoun
+
+    async def _identify_deferred_dict(self, dict_list):
+        ret = {}
+
+        for defer_name, defer_user in dict_list.items():
+            ret[defer_name] = await self.convert_to_entity(defer_user)
+
+        return ret
+
+    async def convert_to_entity(self, users):
         if not isinstance(users, list):
             users = [users]
 
-        if len(users) == 0:
-            raise ValueError("Empty reference")
+        users: typing.List[discord.Member]
 
-        self.users = users
-        self.collective = len(users) > 1
+        return [Entity(user.id, user.display_name, await self.figure_pronouns(user)) for user in users]
 
-    def __getattr__(self, item):
-        return _ReferenceMorpheme(self, item)
+    async def build(self, fragments: list, *, speaker=None, author=None, deferred: typing.Dict):
+        deferred = await self._identify_deferred_dict(deferred)
 
-    async def resolve(self, referenced, speaker, author, **replace):
-        return self.subject
+        if speaker is not None:
+            speaker = await self.convert_to_entity(speaker)
 
+        if author is not None:
+            author = await self.convert_to_entity(author)
 
-class MaybeReflexive(_Fragment, _Resolvable):
-    def __init__(self, author, target):
-        self.author = author
-        self.target = target
+        context = BuildingContext(builder=self,
+                                  building=[],
+                                  speaker=speaker,
+                                  author=author,
+                                  deferred=deferred)
 
-    async def resolve(self, referenced, speaker, author, **replace):
-        author = self.author
-        target = self.target
+        for fragment in fragments:
+            context.building.append([fragment])
 
-        while not isinstance(author, (Reference, _ReferenceMorpheme)):
-            author = await author.resolve(referenced, speaker, author, **replace)
+        for idx, building_list in enumerate(context.building):
+            while isinstance(building_list[-1], _Resolvable):
+                building_list.append(await building_list[-1].resolve(context, idx))
 
-        while not isinstance(target, (Reference, _ReferenceMorpheme)):
-            target = await target.resolve(referenced, speaker, author, **replace)
+            if not isinstance(building_list[-1], str):
+                raise RuntimeError(f"Bad Resolve: {type(building_list[-1])}")
 
-        if isinstance(author, _ReferenceMorpheme):
-            author = author.reference
-
-        if isinstance(target, _ReferenceMorpheme):
-            target = target.reference
-
-        return await target.object.resolve(referenced, speaker, author.users, **replace)
+        return " ".join([ret[-1] for ret in context.building])
 
 
-async def build(fragments: list, *, speaker=None, author=None, **replace):
-    ret = []
-    referenced = []
+class BuildingContext(BaseModel):
+    builder: PhraseBuilder
 
-    for fragment in fragments:
-        while isinstance(fragment, _Resolvable):
-            fragment = await fragment.resolve(referenced, speaker, author, **replace)
+    building: typing.List[typing.List[typing.Union[_Resolvable, str]]]
 
-        if isinstance(fragment, str):
-            ret.append(fragment)
+    speaker: typing.Optional[typing.List[Entity]]
+    author: typing.Optional[typing.List[Entity]]
+    deferred: typing.Dict[str, typing.List[Entity]]
 
-        else:
-            raise RuntimeError(f"Bad Resolve: {type(fragment)}")
-
-    return " ".join(ret)
+    class Config:
+        arbitrary_types_allowed = True

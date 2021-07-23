@@ -4,7 +4,7 @@ import discord
 import humanize
 from discord.ext import commands
 
-from phrase.pronouns import figure_pronouns
+from phrase.build import PhraseBuilder
 from util.human_join_list import human_join_list
 
 
@@ -45,7 +45,7 @@ class InfoCog(commands.Cog):
         if user.id == self.bot.user.id:
             return await self.info(ctx)
 
-        pronouns = await figure_pronouns(user, return_default=False, return_multiple=True)
+        pronouns = await PhraseBuilder.figure_pronouns(user, return_default=False, return_multiple=True)
 
         if pronouns is None:
             description = discord.Embed.Empty
