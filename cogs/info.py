@@ -72,53 +72,26 @@ class InfoCog(commands.Cog):
         embed.add_field(name="Time I joined this server", value=date(user.joined_at))
         embed.add_field(name="My ID", value=str(user.id), inline=False)
 
-        roles_lines = []
-        using = 0
-
-        first = True
-
-        def flush_roles():
-            nonlocal using
-            nonlocal first
-
-            n = "\n"
-
-            if first:
-                first = False
-                name = "Roles"
-                value = f"{len(user.roles) - 1} roles\n{n.join(roles_lines)}"
-
-            else:
-                name = "Yet More Roles"
-                value = n.join(roles_lines)
-
-            embed.add_field(name=name, value=value, inline=False)
-            roles_lines.clear()
-            using = 0
+        detected_roles = []
+        other_roles = []
 
         for role in user.roles:
             if user.guild.default_role == role:
                 continue
 
-            cog_list = []
             for cog_name, cog in self.bot.cogs.items():
                 if hasattr(cog, "detects_role") and await cog.detects_role(role):
-                    cog_list.append(cog_name)
-
-            if cog_list:
-                to_add = f"{role.mention} (detected by {human_join_list(cog_list)} "\
-                         f"cog{'' if len(cog_list) == 1 else 's'})"
+                    detected_roles.append(role)
+                    break
 
             else:
-                to_add = role.mention
+                other_roles.append(role)
 
-            if (using + len(to_add) + len(roles_lines) - 1) > 900:
-                flush_roles()
+        if other_roles:
+            embed.add_field(name="Roles", value=" ".join(r.mention for r in other_roles), inline=False)
 
-            roles_lines.append(to_add)
-            using += len(to_add)
-
-        flush_roles()
+        if detected_roles:
+            embed.add_field(name="Special Roles", value=" ".join(r.mention for r in detected_roles), inline=False)
 
         await ctx.send(embed=embed)
 

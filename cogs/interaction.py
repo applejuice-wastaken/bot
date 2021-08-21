@@ -17,9 +17,11 @@ condition = DeferredReference("condition")
 
 
 def interaction_command_factory(name, *,
+                                connotation=None,
                                 normal: list,
                                 reject: list,
-                                condition_rejected: list = author + "could not do this to" + author.reflexive,
+                                condition_rejected: list =
+                                author + "could not do this to" + MaybeReflexive(author, condition),
                                 condition_predicate=lambda _, __: True):
     async def command(self, ctx, *users: RelativeMemberConverter):
 
@@ -98,6 +100,10 @@ def interaction_command_factory(name, *,
                                                         "valid": allowed,
                                                         "rejected": role_denied,
                                                         "condition": condition_denied})
+
+            if connotation is not None and \
+                    (len(allowed) == 1 and (not role_denied and not condition_denied) and allowed[0] == ctx.bot.user):
+                description += " :)" if connotation else " :("
 
             if description == "":
                 description = discord.Embed.Empty
@@ -190,22 +196,6 @@ class RelativeMemberConverter(MemberConverter):
         return await super(RelativeMemberConverter, self).convert(ctx, argument)
 
 
-def bulk_delete(sequence, **attrs):
-    converted = [
-        (operator.attrgetter(attr.replace('__', '.')), value)
-        for attr, value in attrs.items()
-    ]
-
-    found = []
-
-    for elem in sequence:
-        if all(pred(elem) == value for pred, value in converted):
-            found.append(elem)
-
-    for obj in found:
-        sequence.remove(obj)
-
-
 def user_accepts(member, *actions):
     if isinstance(member, discord.User) or member.discriminator == "0000":
         return True
@@ -229,25 +219,30 @@ class Interaction(commands.Cog):
                 (await PhraseBuilder.figure_pronouns_from_role(self.bot.user, role)) is not None)
 
     interaction_command_factory("hug",
+                                connotation=True,
                                 normal=author + "hugs" + MaybeReflexive(author, valid),
                                 reject=author + "hugged a lamppost in confusion while trying to hug" + rejected.object)
 
     interaction_command_factory("kiss",
+                                connotation=True,
                                 normal=author + "kisses" + MaybeReflexive(author, valid),
                                 reject=rejected + "promptly denied the kiss")
 
     interaction_command_factory("slap",
+                                connotation=False,
                                 normal=author + "slaps" + MaybeReflexive(author, valid),
                                 reject=(rejected + "did some weird scooching and avoided" +
                                         author.possessive_determiner + "slap"),
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("kill",
+                                connotation=False,
                                 normal=author + "kills" + MaybeReflexive(author, valid),
                                 reject=rejected + "used the totem of undying when" + rejected + was + "about to die",
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("stab",
+                                connotation=False,
                                 normal=author + "stabs" + MaybeReflexive(author, valid),
                                 reject=(author.possessive_determiner + "knife turned into flowers when it was" +
                                         rejected.possessive_determiner + "turn"),
@@ -263,35 +258,42 @@ class Interaction(commands.Cog):
                                 reject=rejected + "put a cardboard sheet in front before" + author + "was able to lick")
 
     interaction_command_factory("pet",
+                                connotation=True,
                                 normal=author + "pets" + MaybeReflexive(author, valid),
                                 reject=rejected.possessive_determiner + "head(s) suddenly disappeared")
 
     interaction_command_factory("pat",
+                                connotation=True,
                                 normal=author + "pats" + MaybeReflexive(author, valid),
                                 reject=(author + "pat" + author.reflexive + "in confusion while trying to pat"
                                         + rejected.object))
 
     interaction_command_factory("cookie",
+                                connotation=True,
                                 normal=author + "gives a cookie to" + MaybeReflexive(author, valid),
                                 reject=rejected + "threw off" + author.possessive_determiner + "cookie")
 
     interaction_command_factory("attack",
+                                connotation=False,
                                 normal=author + "attacks" + MaybeReflexive(author, valid),
                                 reject=rejected + "teleported away from" + author.object,
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("boop",
+                                connotation=True,
                                 normal=author + "boops" + MaybeReflexive(author, valid),
                                 reject=rejected + "had no nose to boop")
 
     interaction_command_factory("cuddle",
+                                connotation=True,
                                 normal=author + "cuddles with" + MaybeReflexive(author, valid),
                                 reject=rejected + "looked at" + author.object + "in confusion and walked away")
 
     interaction_command_factory("cake",
+                                connotation=True,
                                 normal=author + "gives a cake to" + MaybeReflexive(author, valid),
                                 reject=(author.possessive_determiner + "cake caught fire when" + author +
-                                        was + "was giving it to" + rejected.object))
+                                        was + "giving it to" + rejected.object))
 
 
 def setup(bot):
