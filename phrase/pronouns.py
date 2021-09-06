@@ -103,6 +103,8 @@ known_pronouns = [
                        pronoun_type=PronounType.SENTINEL, person_class=2, collective=True)
 ]
 
+unknown_morphemes = []
+
 
 def find_pronoun(morpheme, *, collective=None, person_class=None):
     for pronoun in known_pronouns:

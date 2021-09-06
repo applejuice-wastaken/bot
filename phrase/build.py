@@ -137,17 +137,22 @@ class PhraseBuilder:
         if pronoun:
             return pronoun
 
+        if subject in pronouns.unknown_morphemes:
+            return None
+
         async with aiohttp.ClientSession() as session:
             async with session.get(f"https://en.pronouns.page/api/pronouns/{subject}") as response:
                 body = await response.text()
 
                 if body == "":
+                    pronouns.unknown_morphemes.append(subject)
                     return None
 
                 try:
                     json = await response.json()
 
                 except JSONDecodeError:
+                    pronouns.unknown_morphemes.append(subject)
                     return None
 
                 else:
