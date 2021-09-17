@@ -95,6 +95,9 @@ class PhraseBuilder:
 
     @classmethod
     async def figure_pronouns_from_role(cls, member: discord.Member, role: discord.Role):
+        if role.name.startswith("no "):
+            return None
+
         if "/" in role.name:
             chunks = [chunk.lower() for chunk in role.name.split("/")]
 
