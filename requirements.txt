@@ -12,3 +12,4 @@ svglib~=1.1.0
 humanize~=3.10.0
 pydantic~=1.8.2
 emoji~=1.4.1
+git+https://github.com/applejuice-wastaken/phrase-reference-builder

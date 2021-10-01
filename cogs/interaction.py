@@ -6,9 +6,10 @@ from typing import List
 import discord
 from discord.ext import commands
 from discord.ext.commands import MemberConverter, BadArgument
+from phrase_reference_builder.build import PhraseBuilder
+from phrase_reference_builder.types import DeferredReference, MaybeReflexive, was
 
-from phrase.build import PhraseBuilder
-from phrase.types import DeferredReference, MaybeReflexive, was
+from util.pronouns import convert_string_to_pronoun
 
 author = DeferredReference("action_author")
 valid = DeferredReference("valid")
@@ -82,11 +83,11 @@ def interaction_command_factory(name, *,
             description_baking.extend(condition_rejected)
 
         with PhraseBuilder() as builder:
-            title = await builder.build(title_baking, speaker=ctx.bot.user,
-                                        deferred={"action_author": ctx.author,
-                                                  "valid": allowed,
-                                                  "rejected": role_denied,
-                                                  "condition": condition_denied})
+            title = builder.build(title_baking, speaker=ctx.bot.user,
+                                  deferred={"action_author": ctx.author,
+                                            "valid": allowed,
+                                            "rejected": role_denied,
+                                            "condition": condition_denied})
 
             if title == "":
                 title = discord.Embed.Empty
@@ -95,11 +96,11 @@ def interaction_command_factory(name, *,
                 return await ctx.message.reply(embed=discord.Embed(title="(ಠ_ಠ)"),
                                                allowed_mentions=discord.AllowedMentions.none())
 
-            description = await builder.build(description_baking, speaker=ctx.bot.user,
-                                              deferred={"action_author": ctx.author,
-                                                        "valid": allowed,
-                                                        "rejected": role_denied,
-                                                        "condition": condition_denied})
+            description = builder.build(description_baking, speaker=ctx.bot.user,
+                                        deferred={"action_author": ctx.author,
+                                                  "valid": allowed,
+                                                  "rejected": role_denied,
+                                                  "condition": condition_denied})
 
             if connotation is not None and \
                     (len(allowed) == 1 and (not role_denied and not condition_denied) and allowed[0] == ctx.bot.user):
@@ -215,8 +216,7 @@ class Interaction(commands.Cog):
         self.bot = bot
 
     async def detects_role(self, role):
-        return (role.name.startswith("no ") or
-                (await PhraseBuilder.figure_pronouns_from_role(self.bot.user, role)) is not None)
+        return role.name.startswith("no ") or (convert_string_to_pronoun("", role.name)) is not None
 
     interaction_command_factory("hug",
                                 connotation=True,

@@ -4,8 +4,7 @@ import discord
 import humanize
 from discord.ext import commands
 
-from phrase.build import PhraseBuilder
-from util.human_join_list import human_join_list
+from util.pronouns import get_pronouns_from_member, convert_string_to_pronoun
 
 
 class InfoCog(commands.Cog):
@@ -13,7 +12,7 @@ class InfoCog(commands.Cog):
         self.bot: commands.Bot = bot
 
     async def detects_role(self, role):
-        return (await PhraseBuilder.figure_pronouns_from_role(self.bot.user, role)) is not None
+        return (convert_string_to_pronoun("", role.name)) is not None
 
     @commands.command()
     async def info(self, ctx, user: discord.Member = None):
@@ -48,7 +47,7 @@ class InfoCog(commands.Cog):
         if user.id == self.bot.user.id:
             return await self.info(ctx)
 
-        pronouns = await PhraseBuilder.figure_pronouns(user, return_default=False, return_multiple=True)
+        pronouns = get_pronouns_from_member(user)
 
         if pronouns is None:
             description = discord.Embed.Empty
