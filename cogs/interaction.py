@@ -220,80 +220,83 @@ class Interaction(commands.Cog):
 
     interaction_command_factory("hug",
                                 connotation=True,
-                                normal=author + "hugs" + MaybeReflexive(author, valid),
-                                reject=author + "hugged a lamppost in confusion while trying to hug" + rejected.object)
+                                normal=author + " hugs " + MaybeReflexive(author, valid),
+                                reject=author + " hugged a lamppost in "
+                                                "confusion while trying to hug " + rejected.object)
 
     interaction_command_factory("kiss",
                                 connotation=True,
-                                normal=author + "kisses" + MaybeReflexive(author, valid),
-                                reject=rejected + "promptly denied the kiss")
+                                normal=author + " kisses " + MaybeReflexive(author, valid),
+                                reject=rejected + " promptly denied the kiss")
 
     interaction_command_factory("slap",
                                 connotation=False,
-                                normal=author + "slaps" + MaybeReflexive(author, valid),
-                                reject=(rejected + "did some weird scooching and avoided" +
-                                        author.possessive_determiner + "slap"),
+                                normal=author + " slaps " + MaybeReflexive(author, valid),
+                                reject=(rejected + " did some weird scooching and avoided " +
+                                        author.possessive_determiner + " slap"),
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("kill",
                                 connotation=False,
-                                normal=author + "kills" + MaybeReflexive(author, valid),
-                                reject=rejected + "used the totem of undying when" + rejected + was + "about to die",
+                                normal=author + " kills " + MaybeReflexive(author, valid),
+                                reject=rejected + " used the totem of undying when " + rejected + " "
+                                       + was + " about to die",
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("stab",
                                 connotation=False,
-                                normal=author + "stabs" + MaybeReflexive(author, valid),
-                                reject=(author.possessive_determiner + "knife turned into flowers when it was" +
-                                        rejected.possessive_determiner + "turn"),
+                                normal=author + " stabs " + MaybeReflexive(author, valid),
+                                reject=(author.possessive_determiner + " knife turned into flowers when it was " +
+                                        rejected.possessive_determiner + " turn"),
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("stare",
-                                normal=author + "stares at" + MaybeReflexive(author, valid),
-                                reject=(rejected + "turned invisible and" + author +
-                                        "was unable to stare at" + rejected.object))
+                                normal=author + " stares at " + MaybeReflexive(author, valid),
+                                reject=(rejected + " turned invisible and " + author +
+                                        " was unable to stare at " + rejected.object))
 
     interaction_command_factory("lick",
-                                normal=author + "licks" + MaybeReflexive(author, valid),
-                                reject=rejected + "put a cardboard sheet in front before" + author + "was able to lick")
+                                normal=author + " licks " + MaybeReflexive(author, valid),
+                                reject=rejected + " put a cardboard sheet in front before " + author +
+                                       " was able to lick")
 
     interaction_command_factory("pet",
                                 connotation=True,
-                                normal=author + "pets" + MaybeReflexive(author, valid),
-                                reject=rejected.possessive_determiner + "head(s) suddenly disappeared")
+                                normal=author + " pets " + MaybeReflexive(author, valid),
+                                reject=rejected.possessive_determiner + " head(s) suddenly disappeared")
 
     interaction_command_factory("pat",
                                 connotation=True,
-                                normal=author + "pats" + MaybeReflexive(author, valid),
-                                reject=(author + "pat" + author.reflexive + "in confusion while trying to pat"
+                                normal=author + " pats " + MaybeReflexive(author, valid),
+                                reject=(author + " pat " + author.reflexive + " in confusion while trying to pat"
                                         + rejected.object))
 
     interaction_command_factory("cookie",
                                 connotation=True,
-                                normal=author + "gives a cookie to" + MaybeReflexive(author, valid),
-                                reject=rejected + "threw off" + author.possessive_determiner + "cookie")
+                                normal=author + " gives a cookie to " + MaybeReflexive(author, valid),
+                                reject=rejected + " threw off " + author.possessive_determiner + " cookie")
 
     interaction_command_factory("attack",
                                 connotation=False,
-                                normal=author + "attacks" + MaybeReflexive(author, valid),
-                                reject=rejected + "teleported away from" + author.object,
+                                normal=author + " attacks " + MaybeReflexive(author, valid),
+                                reject=rejected + " teleported away from " + author.object,
                                 condition_predicate=operator.ne)
 
     interaction_command_factory("boop",
                                 connotation=True,
-                                normal=author + "boops" + MaybeReflexive(author, valid),
-                                reject=rejected + "had no nose to boop")
+                                normal=author + " boops " + MaybeReflexive(author, valid),
+                                reject=rejected + " had no nose to boop")
 
     interaction_command_factory("cuddle",
                                 connotation=True,
-                                normal=author + "cuddles with" + MaybeReflexive(author, valid),
-                                reject=rejected + "looked at" + author.object + "in confusion and walked away")
+                                normal=author + " cuddles with " + MaybeReflexive(author, valid),
+                                reject=rejected + " looked at " + author.object + " in confusion and walked away")
 
     interaction_command_factory("cake",
                                 connotation=True,
-                                normal=author + "gives a cake to" + MaybeReflexive(author, valid),
-                                reject=(author.possessive_determiner + "cake caught fire when" + author +
-                                        was + "giving it to" + rejected.object))
+                                normal=author + " gives a cake to " + MaybeReflexive(author, valid),
+                                reject=(author.possessive_determiner + " cake caught fire when " + author +
+                                        was + " giving it to " + rejected.object))
 
 
 def setup(bot):
