@@ -44,6 +44,4 @@ async def get_new_avatar(cog):
             with_flag = Image.composite(flag_image, original, mask=original).convert("RGBA")
             original = Image.blend(original, with_flag, blending)
 
-    original.save("img.png")
-
     return original
