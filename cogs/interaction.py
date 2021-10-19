@@ -22,7 +22,7 @@ def interaction_command_factory(name, *,
                                 normal: list,
                                 reject: list,
                                 condition_rejected: list =
-                                author + "could not do this to" + MaybeReflexive(author, condition),
+                                author + " could not do this to " + MaybeReflexive(author, condition),
                                 condition_predicate=lambda _, __: True):
     async def command(self, ctx, *users: RelativeMemberConverter):
 
