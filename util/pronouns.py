@@ -86,7 +86,6 @@ def convert_member(builder: PhraseBuilder, member: discord.Member):
 
     else:
         pronoun = builder.pronoun_repository.default
-
     return Entity(member.id, member.display_name, pronoun)
 
 
@@ -96,3 +95,4 @@ def convert_user(builder: PhraseBuilder, user: discord.User):
 
 build.conversion_table[discord.Member] = convert_member
 build.conversion_table[discord.User] = convert_user
+build.conversion_table[discord.ClientUser] = convert_user

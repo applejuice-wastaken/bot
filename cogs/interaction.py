@@ -83,6 +83,7 @@ def interaction_command_factory(name, *,
             description_baking.extend(condition_rejected)
 
         with PhraseBuilder() as builder:
+            builder.referenced.append(builder.convert_to_entity_collection(ctx.bot.user)[0])
             title = builder.build(title_baking, speaker=ctx.bot.user,
                                   deferred={"action_author": ctx.author,
                                             "valid": allowed,
@@ -297,6 +298,12 @@ class Interaction(commands.Cog):
                                 normal=author + " gives a cake to " + MaybeReflexive(author, valid),
                                 reject=(author.possessive_determiner + " cake caught fire when " + author +
                                         was + " giving it to " + rejected.object))
+
+    interaction_command_factory("cheese",
+                                connotation=True,
+                                normal=author + " gives cheese to " + MaybeReflexive(author, valid),
+                                reject=(author.possessive_determiner + " cheese melted away before giving it to "
+                                        + rejected.object))
 
 
 def setup(bot):
