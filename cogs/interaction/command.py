@@ -22,6 +22,7 @@ def interaction_command_factory(name, *,
                                 reject: list,
                                 condition_rejected: list =
                                 author + " could not do this to " + MaybeReflexive(author, condition),
+                                mutual=True,
                                 condition_predicate=lambda _, __: True):
     async def command(self, ctx, *users: RelativeMemberConverter):
 
@@ -38,7 +39,7 @@ def interaction_command_factory(name, *,
     async def make_response(self, ctx, *users: discord.Member):
         users: typing.List[discord.Member] = list(users)
 
-        if not user_accepts(ctx.author, name, "thing"):
+        if mutual and not user_accepts(ctx.author, name, "thing"):
             return await ctx.send(f"But you don't like that")
 
         if ctx.message.reference is not None:
