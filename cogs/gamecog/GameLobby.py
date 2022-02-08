@@ -3,7 +3,7 @@ import base64
 from contextlib import suppress
 from typing import Type, Dict, Any, Tuple
 
-import discord
+import nextcord
 
 from games.Game import Game
 from games.GameSetting import GameSetting
@@ -30,8 +30,8 @@ class MainPage(Page):
     SETTINGS_PAGE = "\u2699\ufe0f"
 
     def render_message(self) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{self.message.game_class.game_name} game",
-                              color=0x333333)
+        embed = nextcord.Embed(title=f"{self.message.game_class.game_name} game",
+                               color=0x333333)
 
         if len(self.message.queued_players) > 0:
             body = "\n".join(member.mention for member in self.message.queued_players)
@@ -125,7 +125,7 @@ class PreparePage(Page):
             message = await player.send("Waiting confirmation")
 
             self.waiting_confirm.append((message, player))
-        except discord.Forbidden:
+        except nextcord.Forbidden:
             self.waiting_resend.append(player)
         else:
             await message.add_reaction(self.CONFIRM)
@@ -141,8 +141,8 @@ class PreparePage(Page):
                 await message.delete(delay=30)
 
     def render_message(self) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{self.message.game_class.game_name} game",
-                              color=0x333333)
+        embed = nextcord.Embed(title=f"{self.message.game_class.game_name} game",
+                               color=0x333333)
 
         players_waiting = [i[1] for i in self.waiting_confirm]
 
@@ -203,8 +203,8 @@ class SettingsPage(Page):
     LOAD = "\U0001f4e5"
 
     def render_message(self) -> Dict[str, Any]:
-        embed = discord.Embed(title=f"{self.message.game_class.game_name} game",
-                              color=0x333333)
+        embed = nextcord.Embed(title=f"{self.message.game_class.game_name} game",
+                               color=0x333333)
 
         if len(self.message.game_settings_proto) > 0:
             body = "\n".join(f"{idx}: {val.display}: "
@@ -291,7 +291,7 @@ class SettingsPage(Page):
 
 class StartedPage(Page):
     def render_message(self) -> Dict[str, Any]:
-        embed = discord.Embed(title="Game has begun", color=0x333333)
+        embed = nextcord.Embed(title="Game has begun", color=0x333333)
 
         return dict(embed=embed, reaction_group="stp")
 

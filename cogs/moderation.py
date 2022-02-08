@@ -1,12 +1,14 @@
-import asyncio
 import dataclasses
 import datetime
+import typing
 from collections import deque
 
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord.ext import commands
+from nextcord import SlashOption, Interaction
 
 from util.human_join_list import human_join_list
+from util.interops import CommandInterop, ResponseKind, CommandType
 
 
 @dataclasses.dataclass(frozen=True)
@@ -29,146 +31,135 @@ class Moderation(commands.Cog):
 
         self.purge_info: deque[Record] = deque(maxlen=30)
 
-    async def purge_action(self, ctx, messages: list):
+    async def purge_action(self, resp: CommandInterop, messages: typing.List[nextcord.Message]):
         messages.sort(key=lambda value: value.id, reverse=True)
 
         for message in messages:
-            age = datetime.datetime.now() - message.created_at
+            age = datetime.datetime.now() - message.created_at.replace(tzinfo=None)
             if age.days > 14:
-                await ctx.send("No can do; there's messages older than 14 days", delete_after=10)
-                await ctx.message.delete(delay=10)
+                await resp.respond("No can do; there's messages older than 14 days", failure=True)
                 break
 
         else:
-            def check(ev):
-                return ev.user_id == ctx.author.id
+            deleted = 0
+            pinged_roles = set()
+            pinged_users = set()
+            authors = {resp.author}
+            pinged_everyone = False
+            times = 1
 
-            confirm_message = await ctx.send(f"This will delete {len(messages)} messages, are you sure?")
+            for message in messages:
+                info = nextcord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
+                if info is not None:
+                    info: Record
 
-            if messages[0].id != ctx.message.id:
-                await messages[0].add_reaction(self.UP)
+                    deleted += info.deleted_messages
 
-            await messages[-1].add_reaction(self.DOWN)
+                    authors |= info.authors
+                    pinged_roles |= info.pinged_roles
+                    pinged_users |= info.pinged_users
+                    pinged_everyone |= info.pinged_everyone
+                    times += info.times
 
-            try:
-                emoji = await self.bot.choice(confirm_message, "✅", "❌", check=check)
-            except asyncio.TimeoutError:
-                await ctx.send("Timeout", delete_after=10)
-                await ctx.message.delete(delay=5)
-                await confirm_message.delete(delay=5)
+                for role in message.role_mentions:
+                    pinged_roles.add(role)
 
-                if messages[0].id != ctx.message.id:
-                    await messages[0].remove_reaction(self.UP, ctx.guild.me)
+                for user in message.mentions:
+                    pinged_users.add(user)
 
-                await messages[-1].remove_reaction(self.DOWN, ctx.guild.me)
-            else:
-                if emoji.name == "✅":
-                    deleted = 0
-                    pinged_roles = set()
-                    pinged_users = set()
-                    authors = {ctx.author}
-                    pinged_everyone = False
-                    times = 1
+                pinged_everyone |= message.mention_everyone
+                deleted += 1
 
-                    for message in messages:
-                        message: discord.Message
+            while len(messages) > 0:
+                await resp.channel.delete_messages(messages[:100])
+                messages = messages[100:]
 
-                        info = discord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
-                        if info is not None:
-                            info: Record
+            main_chunk = f"Deleted {deleted} Messages"
 
-                            deleted += info.deleted_messages
+            if resp.kind == CommandType.COMMAND:
+                main_chunk += f" issued by {human_join_list([author.mention for author in authors])}"
 
-                            authors |= info.authors
-                            pinged_roles |= info.pinged_roles
-                            pinged_users |= info.pinged_users
-                            pinged_everyone |= info.pinged_everyone
-                            times += info.times
+            appended_info = []
 
-                        for role in message.role_mentions:
-                            pinged_roles.add(role)
+            if pinged_users:
+                appended_info.append(f"{len(pinged_users)} user{'' if len(pinged_users) == 1 else 's'}")
 
-                        for user in message.mentions:
-                            pinged_users.add(user)
+            if pinged_roles:
+                appended_info.append(f"{len(pinged_roles)} role{'' if len(pinged_roles) == 1 else 's'}")
 
-                        pinged_everyone |= message.mention_everyone
-                        deleted += 1
+            if pinged_everyone:
+                appended_info.append("everyone")
 
-                    while len(messages) > 0:
-                        await ctx.channel.delete_messages(messages[:100])
-                        messages = messages[100:]
+            if appended_info:
+                main_chunk += ", that pinged "
 
-                    main_chunk = f"Deleted {deleted} Messages " \
-                                 f"issued by {human_join_list([author.mention for author in authors])}"
+            trace = await resp.respond(f"*[{main_chunk + human_join_list(appended_info)}]*")
 
-                    appended_info = []
+            if trace is not None:
+                self.purge_info.append(Record(trace.id, deleted, authors,
+                                              pinged_roles, pinged_users, pinged_everyone, times))
 
-                    if pinged_users:
-                        appended_info.append(f"{len(pinged_users)} user{'' if len(pinged_users) == 1 else 's'}")
-
-                    if pinged_roles:
-                        appended_info.append(f"{len(pinged_roles)} role{'' if len(pinged_roles) == 1 else 's'}")
-
-                    if pinged_everyone:
-                        appended_info.append("everyone")
-
-                    if appended_info:
-                        main_chunk += ", that pinged "
-
-                    if times == 3:
-                        self.purge_until: commands.Command
-
-                        tip = f"\n*(TIP: Use " \
-                              f"`{self.bot.command_prefix}{self.purge_until.qualified_name}" \
-                              f" {self.purge_until.signature}` command for a more " \
-                              f"accurate selection of messages to purge)*"
-                    else:
-                        tip = ""
-
-                    trace = await ctx.send(f"*[{main_chunk + human_join_list(appended_info)}]*{tip}",
-                                           allowed_mentions=discord.AllowedMentions.none())
-
-                    self.purge_info.append(Record(trace.id, deleted, authors,
-                                                  pinged_roles, pinged_users, pinged_everyone, times))
-                else:
-                    await ctx.message.delete()
-
-                    if messages[0].id != ctx.message.id:
-                        await messages[0].remove_reaction(self.UP, ctx.guild.me)
-
-                    await messages[-1].remove_reaction(self.DOWN, ctx.guild.me)
-
-                await confirm_message.delete()
-
-    @commands.guild_only()
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
-    @commands.group(invoke_without_command=True)
-    async def purge(self, ctx, quantity: int):
-        """purges an amount of messages sorted by newest"""
+    async def impl_purge_quantity(self, resp: CommandInterop, quantity: int):
         if quantity <= 1:
-            await ctx.send("Has to be higher than 1")
+            await resp.respond("Has to be higher than 1", kind=ResponseKind.FAILURE)
+
         else:
-            messages = await ctx.channel.history(limit=quantity + 1).flatten()
+            messages = await resp.channel.history(limit=quantity).flatten()
+            await self.purge_action(resp, messages)
 
-            await self.purge_action(ctx, messages)
-
-    @commands.guild_only()
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
-    @purge.command(name="until")
-    async def purge_until(self, ctx, message_id: int):
-        """purges messages until message_id"""
-        messages = await ctx.channel.history(limit=1000, after=discord.Object(message_id)).flatten()
+    async def impl_purge_until(self, resp: CommandInterop, target):
+        messages = await resp.channel.history(limit=1000, after=target).flatten()
 
         if len(messages) <= 1:
-            await ctx.send("Insufficient amount of messages")
+            await resp.respond("Insufficient amount of messages")
         else:
-            await self.purge_action(ctx, messages)
+            await self.purge_action(resp, messages)
+
+    # groups
+
+    @nextcord.slash_command(name="purge")
+    async def s_purge_root(self, interaction):
+        pass
+
+    # purge quantity command
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
+    @commands.group(name="purge", invoke_without_command=True)
+    async def c_purge_quantity(self, ctx, quantity: int):
+        """Purge an arbitrary amount of messages"""
+        await self.impl_purge_quantity(CommandInterop.from_command(ctx), quantity + 1)
+
+    @s_purge_root.subcommand(name="quantity", description="Purge an arbitrary amount of messages")
+    async def s_purge_quantity(self, interaction: Interaction, quantity: int = SlashOption(required=True)):
+        if not interaction.channel.permissions_for(interaction.user).manage_messages:
+            await interaction.send("You can't use this command", ephemeral=True)
+            return
+
+        await self.impl_purge_quantity(await CommandInterop.from_slash_interaction(interaction), quantity)
+
+    # purge until command
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
+    @c_purge_quantity.command(name="until")
+    async def c_purge_until(self, ctx, message_id: int):
+        """Purges until a specified message"""
+        await self.impl_purge_until(CommandInterop.from_command(ctx), nextcord.Object(message_id))
+
+    @s_purge_root.subcommand(name="until", description="Purges until a specified message")
+    async def s_purge_until(self, interaction: Interaction, message: nextcord.Message):
+        if not interaction.channel.permissions_for(interaction.user).manage_messages:
+            await interaction.send("You can't use this command", ephemeral=True)
+            return
+
+        await self.impl_purge_until(await CommandInterop.from_slash_interaction(interaction), message)
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
-        info = discord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
+        info = nextcord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
 
         if info:
             self.purge_info.remove(info)
@@ -176,7 +167,7 @@ class Moderation(commands.Cog):
     @commands.Cog.listener()
     async def on_bulk_message_delete(self, messages):
         for message in messages:
-            info = discord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
+            info = nextcord.utils.find(lambda other: other.message_id == message.id, self.purge_info)
 
             if info:
                 self.purge_info.remove(info)

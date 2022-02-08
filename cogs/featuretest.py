@@ -1,8 +1,8 @@
 from abc import ABC
 from typing import Dict, Any
 
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord.ext import commands
 
 from reactive_message.HoistedReactiveMessage import HoistedReactiveMessage
 from reactive_message.ReactiveMessage import ReactiveMessage
@@ -22,9 +22,9 @@ class TestReactiveMessageBasis:
         self.change_content = False
 
     def generate_embed(self):
-        return discord.Embed(title="This command tests the reactive_message module and it's updatability",
-                             description="This module is capable of constructing classes that can render "
-                                         "a message without any interfacing with discord")
+        return nextcord.Embed(title="This command tests the reactive_message module and it's updatability",
+                              description="This module is capable of constructing classes that can render "
+                                          "a message without any interfacing with nextcord")
 
     def render_message(self) -> Dict[str, Any]:
         if self.reactions:
@@ -68,15 +68,15 @@ class TestReactiveMessageHoist(TestReactiveMessageBasis, HoistedReactiveMessage)
         TestReactiveMessageBasis.__init__(self)
 
     def generate_embed(self):
-        return discord.Embed(title="This command tests the reactive_message module and it's updatability\n"
-                                   "It also tests the hoist capability of this module",
-                             description="This module is capable of constructing classes that can "
-                                         "render a message without any interfacing with discord")
+        return nextcord.Embed(title="This command tests the reactive_message module and it's updatability\n"
+                                    "It also tests the hoist capability of this module",
+                              description="This module is capable of constructing classes that can "
+                                          "render a message without any interfacing with nextcord")
 
 
 class RoutePage(Page):
     def render_message(self) -> Dict[str, Any]:
-        embed = discord.Embed(description="This command tests the routing capability of the reactive_message module")
+        embed = nextcord.Embed(description="This command tests the routing capability of the reactive_message module")
 
         embed.add_field(name="Map",
                         value="Root\n├Page 'a'\n├Page 'b'\n│├(Base Page)\n│└(Fallback Page)\n└(Fallback Page)")

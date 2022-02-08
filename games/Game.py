@@ -5,8 +5,8 @@ from enum import Enum
 from functools import partial
 from typing import Dict, Union
 
-import discord
-from discord import TextChannel
+import nextcord
+from nextcord import TextChannel
 
 from games.GamePlayer import GamePlayer
 from games.GameSetting import GameSetting
@@ -55,26 +55,26 @@ class Game(abc.ABC):
 
     async def end_game(self, code: EndGame, *args):
         if code == EndGame.DRAW:
-            embed = discord.Embed(title="Game",
-                                  description=f"Draw",
-                                  color=0xffff00)
+            embed = nextcord.Embed(title="Game",
+                                   description=f"Draw",
+                                   color=0xffff00)
         elif code == EndGame.WIN:
-            embed = discord.Embed(title="Game",
-                                  description=f"{args[0].mention} won",
-                                  color=0x00ff00)
+            embed = nextcord.Embed(title="Game",
+                                   description=f"{args[0].mention} won",
+                                   color=0x00ff00)
         elif code == EndGame.INSUFFICIENT_PLAYERS:
-            embed = discord.Embed(title="Game",
-                                  description=f"The game ended because everyone ran away",
-                                  color=0xaaaaaa)
+            embed = nextcord.Embed(title="Game",
+                                   description=f"The game ended because everyone ran away",
+                                   color=0xaaaaaa)
         elif code == EndGame.ERROR:
-            embed = discord.Embed(title="Game",
-                                  description=f"The game ended because applejuice is an idiot and let a crash slip"
-                                              f" by\n{str(args[0])}",
-                                  color=0xaa4444)
+            embed = nextcord.Embed(title="Game",
+                                   description=f"The game ended because applejuice is an idiot and let a crash slip"
+                                               f" by\n{str(args[0])}",
+                                   color=0xaa4444)
         else:
-            embed = discord.Embed(title="Game",
-                                  description=f"The game ended",
-                                  color=0x333333)
+            embed = nextcord.Embed(title="Game",
+                                   description=f"The game ended",
+                                   color=0x333333)
 
         await self.players.including(self.channel).send(embed=embed)
         self.cog.game_instances.remove(self)
@@ -109,9 +109,9 @@ class Game(abc.ABC):
         else:
             text = ""
 
-        embed = discord.Embed(title="Game",
-                              description=f"{player.mention} left\n{text}",
-                              color=0x333333)
+        embed = nextcord.Embed(title="Game",
+                               description=f"{player.mention} left\n{text}",
+                               color=0x333333)
 
         await self.players.send(embed=embed)
 
@@ -138,7 +138,6 @@ class Game(abc.ABC):
         async with self.lock:
             if self.running:
                 try:
-                    print(f"entering {coroutine}")
                     with suppress(GameEndedException):
                         await coroutine
 
@@ -151,11 +150,13 @@ class Game(abc.ABC):
                     for player in to_leave:
                         await self.player_leave(player, LeaveReason.CHANNEL_BLOCKED)
 
-                    print(f"exiting {coroutine}")
                 except Exception as e:
                     with suppress(GameEndedException):
                         await self.end_game(EndGame.ERROR, e)
                     raise
+
+            else:
+                coroutine.close()
 
 
 class GameEndedException(Exception):

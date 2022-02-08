@@ -1,4 +1,4 @@
-from discord.abc import Messageable
+from nextcord.abc import Messageable
 
 
 class Absorber:

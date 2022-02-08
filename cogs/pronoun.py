@@ -1,13 +1,11 @@
-from __future__ import annotations
-
 import typing
 
-import discord
-from discord.ext import commands
-from phrase_reference_builder.build import PhraseBuilder, Entity
-from phrase_reference_builder.pronouns import Pronoun, PronounType
-from phrase_reference_builder.types import DeferredReference
+import nextcord
+from nextcord import SlashOption
+from nextcord.ext import commands
+from phrase_reference_builder.pronouns import Pronoun, PronounType, default_repository
 
+from util.interops import CommandInterop, ResponseKind, ResponsePrivacyKind
 from util.pronouns import convert_string_to_pronoun, get_pronouns_from_member
 
 if typing.TYPE_CHECKING:
@@ -24,50 +22,96 @@ Ensure that your pronoun follows one of this schemas
 """
 
 
+async def impl_pronoun_get(resp: CommandInterop, user):
+    pronouns = get_pronouns_from_member(user)
+
+    if pronouns:
+        pronouns_lines = []
+        for pronoun in pronouns:
+            pronouns_lines.append(f"{str(pronoun)} ({pronoun.pronoun_type.name.replace('_', ' ').title()})")
+
+        pronoun_str = "\n".join(pronouns_lines)
+
+        embed = nextcord.Embed(title=f"{user.name}'s detected pronouns", description=pronoun_str)
+        await resp.respond(embed=embed, privacy=ResponsePrivacyKind.PRIVATE_IF_POSSIBLE)
+
+    else:
+        await resp.respond("*No pronouns detected*", kind=ResponseKind.FAILURE)
+
+
+async def impl_pronoun_test(resp: CommandInterop, raw: str):
+    p = convert_string_to_pronoun(resp.author.name, raw)
+
+    if p is None:
+        await resp.respond(PRONOUN_FAILURE, kind=ResponseKind.FAILURE)
+
+    else:
+        lines = []
+        for attr in (*Pronoun.get_morpheme_names(), "pronoun_type", "person_class", "collective"):
+            value = getattr(p, attr)
+
+            if isinstance(value, PronounType):
+                display = value.name.lower().replace("_", " ")
+
+            else:
+                display = repr(value)
+
+            lines.append(f"    **{attr.replace('_', ' ')}:** {display}")
+
+        await resp.respond("here's what I recognise:\n" + "\n".join(lines))
+
+
 class Pronouns(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
 
-    @commands.group(name="pronoun", invoke_without_command=True)
-    async def main(self, ctx):
-        """sends a message"""
+    # groups
 
-        pronouns = get_pronouns_from_member(ctx.author)
+    @nextcord.slash_command(name="pronouns")
+    async def s_pronoun_root(self, interaction):
+        pass
 
-        if pronouns:
-            pronouns_lines = []
-            for pronoun in pronouns:
-                pronouns_lines.append(f"{str(pronoun)} ({pronoun.pronoun_type.name.replace('_', ' ').title()})")
+    # pronoun get command
 
-            pronoun_str = "\n".join(pronouns_lines)
+    @commands.group(name="pronouns", invoke_without_command=True)
+    async def c_pronoun_get(self, ctx, user: nextcord.Member = None):
+        """Gets the detected pronoun's from a user"""
 
-            embed = discord.Embed(title=f"{ctx.author.name}'s detected pronouns", description=pronoun_str)
-            await ctx.send(embed=embed)
+        if user is None:
+            user = ctx.author
 
-        else:
-            await ctx.send("*No detected pronouns*")
+        await impl_pronoun_get(CommandInterop.from_command(ctx), user)
 
-    @main.command()
-    async def test(self, ctx, p_str):
-        p = convert_string_to_pronoun(ctx.author, p_str)
+    @s_pronoun_root.subcommand(name="get", description="Gets the detected pronoun's from an user")
+    async def s_pronoun_get(self, interaction,
+                            user: nextcord.Member =
+                            SlashOption(required=False, description="The user you want to fetch the pronouns from")):
 
-        if p is None:
-            await ctx.send(PRONOUN_FAILURE)
+        if user is None:
+            user = interaction.user
 
-        else:
-            lines = []
-            for attr in (*Pronoun.get_morpheme_names(), "pronoun_type", "person_class", "collective"):
-                value = getattr(p, attr)
+        await impl_pronoun_get(await CommandInterop.from_slash_interaction(interaction), user)
 
-                if isinstance(value, PronounType):
-                    display = value.name.lower().replace("_", " ")
+    # pronoun test command
 
-                else:
-                    display = repr(value)
+    @c_pronoun_get.command(name="test")
+    async def c_pronoun_test(self, ctx, p_str):
+        """Tests if the bot can detect a pronoun's presentation"""
+        await impl_pronoun_test(CommandInterop.from_command(ctx), p_str)
 
-                lines.append(f"    **{attr.replace('_', ' ')}:** {display}")
+    @s_pronoun_root.subcommand(name="test", description="Tests if the bot can detect a pronoun's presentation")
+    async def s_pronoun_test(self, interaction, pronoun=SlashOption("pronoun", description="The pronoun")):
+        """Tests a pronoun's representation"""
+        pronoun: str
+        await impl_pronoun_test(await CommandInterop.from_slash_interaction(interaction), pronoun)
 
-            await ctx.send("here's what I recognise:\n" + "\n".join(lines))
+    @s_pronoun_test.on_autocomplete("pronoun")
+    async def s_pronoun_test_auto_pronoun(self, interaction, pronoun: str):
+        all_pronouns = default_repository.custom_pronouns | default_repository.main_pronouns
+
+        filtered = set(str(p) for p in all_pronouns if str(p).startswith(pronoun))
+
+        await interaction.response.send_autocomplete(list(filtered))
 
 
 def setup(bot):

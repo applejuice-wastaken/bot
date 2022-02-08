@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-import discord
+import nextcord
 
 from games.Game import EndGame, LeaveReason
 from games.GameHasTimeout import GameWithTimeout
@@ -96,7 +96,7 @@ class BlackJackGame(GameWithTimeout):
 
     async def decision_start(self):
         self.reset_timer()
-        embed = discord.Embed(title="Your decision", description=f"\"hit\" or \"stay\"?", color=0x444444)
+        embed = nextcord.Embed(title="Your decision", description=f"\"hit\" or \"stay\"?", color=0x444444)
 
         embed.add_field(name="Your hand", value=f"{build_hand(self.hitting_player.hand)}\n"
                                                 f"(score: {calculate_score(self.hitting_player.hand)})",
@@ -195,7 +195,7 @@ class BlackJackGame(GameWithTimeout):
                                     f"{winner} got " \
                                     f"the best out of this one!"
 
-        embed = discord.Embed(title="Game", description=embed_description, color=0xaaaaaa)
+        embed = nextcord.Embed(title="Game", description=embed_description, color=0xaaaaaa)
 
         game_winner = None
 

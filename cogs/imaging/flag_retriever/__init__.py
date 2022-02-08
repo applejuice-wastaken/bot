@@ -16,7 +16,6 @@ def get_retrievers() -> typing.List[FlagRetriever]:
     return [LocalFlagRetriever(), CountryFlagRetriever(), LGBTFlagRetriever()]
 
 
-@alru_cache
 async def get_flag(name, schema=None) -> typing.Optional[Flag]:
     for retriever in get_retrievers():
         if schema is None or retriever.schema == schema:

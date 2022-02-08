@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import typing
 
-from discord.ext.commands import MemberConverter, BadArgument
+from nextcord.ext.commands import MemberConverter, BadArgument
 
 if typing.TYPE_CHECKING:
     pass

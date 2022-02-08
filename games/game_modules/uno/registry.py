@@ -1,7 +1,7 @@
 import random
 from enum import Enum
 
-import discord
+import nextcord
 
 from games.round.RoundGame import Direction
 
@@ -141,7 +141,7 @@ class Color(Enum):
 
     @classmethod
     async def begin(cls, game):
-        embed = discord.Embed(title="Pick a color", description="", color=0x00ff00)
+        embed = nextcord.Embed(title="Pick a color", description="", color=0x00ff00)
 
         game.bound_message = await game.current_player.send(embed=embed)
 

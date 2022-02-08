@@ -3,7 +3,7 @@ import math
 import random
 
 import aiohttp
-import discord
+import nextcord
 
 from games.Game import EndGame
 from games.GameHasTimeout import GameWithTimeout
@@ -136,9 +136,9 @@ class TriviaGame(GameWithTimeout):
 
         frag.append(f"Barrier: {self.barrier} points")
 
-        embed = discord.Embed(title="Results",
-                              description="\n".join(frag),
-                              color=0xaaaaaa)
+        embed = nextcord.Embed(title="Results",
+                               description="\n".join(frag),
+                               color=0xaaaaaa)
 
         frag = ["```"]
         for player in self.players:
@@ -190,9 +190,9 @@ class TriviaGame(GameWithTimeout):
         elif self.trivia_question["difficulty"] == "hard":
             color = 0xaa4444
 
-        self.embed = discord.Embed(title=f"{self.trivia_question['category']}: {self.trivia_question['difficulty']}",
-                                   description=self.trivia_question["question"],
-                                   color=color)
+        self.embed = nextcord.Embed(title=f"{self.trivia_question['category']}: {self.trivia_question['difficulty']}",
+                                    description=self.trivia_question["question"],
+                                    color=color)
 
         if self.trivia_question["type"] == "boolean":
             self.embed.add_field(name="Is this true or false?", value="\u200C")

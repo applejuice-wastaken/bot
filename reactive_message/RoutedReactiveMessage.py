@@ -4,7 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, Tuple, Type
 
-from reactive_message.ReactiveMessage import ReactiveMessage, checks_updates
+from .ReactiveMessage import ReactiveMessage, checks_updates
 
 
 def chain(func):

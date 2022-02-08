@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, List, Callable, Collection
 
-import discord
+import nextcord
 
 from games.GamePlayer import GamePlayer
 from games.game_modules.uno import registry
@@ -89,9 +89,9 @@ class UnoGame(RoundGame):
     async def begin_round(self):
         tmp = f'get {self.cards_to_take} cards' if self.cards_to_take > 0 else 'skip'
 
-        current_player_embed = discord.Embed(title="It's your turn",
-                                             description=f"pick a card or {tmp} by typing 'skip'",
-                                             color=0x00ff00)
+        current_player_embed = nextcord.Embed(title="It's your turn",
+                                              description=f"pick a card or {tmp} by typing 'skip'",
+                                              color=0x00ff00)
         current_player_embed.add_field(name="Current Card",
                                        value=self.last_played.get_user_friendly(),
                                        inline=False)
@@ -99,8 +99,8 @@ class UnoGame(RoundGame):
                                        value=self.list_deck(self.current_player.hand),
                                        inline=False)
 
-        other_players_embed = discord.Embed(title=f"It's {self.current_player.display_name}'s Turn",
-                                            description="They're Picking A Card", color=0x00ff00)
+        other_players_embed = nextcord.Embed(title=f"It's {self.current_player.display_name}'s Turn",
+                                             description="They're Picking A Card", color=0x00ff00)
 
         await self.players.excluding(self.current_player).send(embed=other_players_embed)
         await self.current_player.send(embed=current_player_embed)

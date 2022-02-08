@@ -1,5 +1,5 @@
-from discord.ext import commands
-from discord.ext.commands import CheckFailure
+from nextcord.ext import commands
+from nextcord.ext.commands import CheckFailure
 
 
 class RequiresCog(CheckFailure):

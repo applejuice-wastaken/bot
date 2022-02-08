@@ -1,7 +1,7 @@
 import operator
 
 import aiohttp.client
-from discord.ext import commands
+from nextcord.ext import commands
 from phrase_reference_builder.types import MaybeReflexive, was
 
 from util.pronouns import convert_string_to_pronoun

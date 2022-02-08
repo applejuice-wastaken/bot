@@ -1,5 +1,6 @@
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord import Interaction
+from nextcord.ext import commands
 
 
 class Fun(commands.Cog):
@@ -7,17 +8,20 @@ class Fun(commands.Cog):
         self.bot = bot
 
     @commands.command(name="doggo")
-    async def dog(self, ctx):
-        """sends a message"""
-        m = await ctx.send("doggo")
-        self.bot.get_cog("Uninvoke").create_unload(ctx.message, lambda: m.delete())
+    async def c_dog(self, ctx):
+        """doggo"""
+        await ctx.send("doggo")
+
+    @nextcord.slash_command(name="doggo", description="doggo")
+    async def s_dog(self, interaction: Interaction):
+        await interaction.send("doggo")
 
     @commands.is_owner()
     @commands.command(name="wb")
     async def send_webhook(self, ctx, name, av, *, content):
         await ctx.message.delete()
         webhook = await self.bot.get_webhook_for_channel(ctx.channel)
-        webhook: discord.Webhook
+
         if webhook is not None:
             await webhook.send(content, username=name, avatar_url=av if av.startswith("http") else None)
 

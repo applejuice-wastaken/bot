@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-import discord
+import nextcord
 from emoji import UNICODE_EMOJI_ENGLISH
 from phrase_reference_builder import build
 import typing
@@ -27,7 +27,7 @@ def _add_result_to_repository(repository: PronounRepository):
     return deco
 
 
-def get_pronouns_from_member(member: discord.Member):
+def get_pronouns_from_member(member: nextcord.Member):
     pronouns = []
 
     for role in member.roles:
@@ -78,7 +78,7 @@ def convert_string_to_pronoun(name: str, string: str):
         return Pronoun.pronounless(name)
 
 
-def convert_member(builder: PhraseBuilder, member: discord.Member):
+def convert_member(builder: PhraseBuilder, member: nextcord.Member):
     pronouns = get_pronouns_from_member(member)
 
     if pronouns:
@@ -89,10 +89,10 @@ def convert_member(builder: PhraseBuilder, member: discord.Member):
     return Entity(member.id, member.display_name, pronoun)
 
 
-def convert_user(builder: PhraseBuilder, user: discord.User):
+def convert_user(builder: PhraseBuilder, user: nextcord.User):
     return Entity(user.id, user.name, builder.pronoun_repository.default)
 
 
-build.conversion_table[discord.Member] = convert_member
-build.conversion_table[discord.User] = convert_user
-build.conversion_table[discord.ClientUser] = convert_user
+build.conversion_table[nextcord.Member] = convert_member
+build.conversion_table[nextcord.User] = convert_user
+build.conversion_table[nextcord.ClientUser] = convert_user

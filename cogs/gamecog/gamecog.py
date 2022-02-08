@@ -1,8 +1,8 @@
 from typing import List
 
-import discord
-from discord import RawReactionActionEvent, Reaction
-from discord.ext import commands
+import nextcord
+from nextcord import RawReactionActionEvent, Reaction
+from nextcord.ext import commands
 
 from cogs.gamecog.GameLobby import GameLobby
 from games.Game import Game
@@ -31,7 +31,7 @@ class GameCog(commands.Cog):
     async def new(self, ctx, game_name=None):
         """creates a lobby"""
         if game_name is None:
-            embed = discord.Embed(title="Games", description="\n".join(games.keys()))
+            embed = nextcord.Embed(title="Games", description="\n".join(games.keys()))
             await ctx.send(embed=embed)
             return
 
@@ -45,7 +45,7 @@ class GameCog(commands.Cog):
     @game.command()
     async def list(self, ctx):
         """returns all the games registered"""
-        embed = discord.Embed(title="Games", description="\n".join(games.keys()))
+        embed = nextcord.Embed(title="Games", description="\n".join(games.keys()))
         await ctx.send(embed=embed)
 
     @commands.dm_only()
@@ -70,7 +70,7 @@ class GameCog(commands.Cog):
             try:
                 await player.send(f"A {instance_class.game_name} game is starting,"
                                   f" use {self.bot.command_prefix}leave to leave the game")
-            except discord.Forbidden:
+            except nextcord.Forbidden:
                 pass
             else:
                 players.append(instance_class.game_player_class(player, await player.create_dm()))
@@ -129,7 +129,7 @@ class GameCog(commands.Cog):
                     data = dict(message_id=ev.user_id, channel_id=ev.channel_id,
                                 user_id=ev.user_id, guild_id=ev.guild_id)
 
-                    message = discord.utils.find(lambda m: m.id == ev.message_id, reversed(self.bot.cached_messages))
+                    message = nextcord.utils.find(lambda m: m.id == ev.message_id, reversed(self.bot.cached_messages))
 
                     emoji_id = ev.emoji.id
                     if not emoji_id:

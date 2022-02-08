@@ -4,7 +4,7 @@ from contextlib import suppress
 from functools import wraps
 from typing import Dict, Any, Optional, Iterable
 
-import discord
+import nextcord
 
 from util.human_join_list import human_join_list
 
@@ -17,9 +17,9 @@ def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
     for key, val in n.items():
         other_value = o.get(key, None)
 
-        if isinstance(val, discord.Embed) and isinstance(other_value, discord.Embed):
+        if isinstance(val, nextcord.Embed) and isinstance(other_value, nextcord.Embed):
             is_equal = other_value.to_dict() == val.to_dict()
-        elif not isinstance(val, discord.Embed) and not isinstance(other_value, discord.Embed):
+        elif not isinstance(val, nextcord.Embed) and not isinstance(other_value, nextcord.Embed):
             is_equal = val == other_value
         else:
             is_equal = False
@@ -31,9 +31,9 @@ def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:
     return ret
 
 
-async def sync_reactions(message: discord.Message, reactions: Iterable[str]):
+async def sync_reactions(message: nextcord.Message, reactions: Iterable[str]):
     message = await message.channel.fetch_message(message.id)  # get updated message
-    message: discord.Message
+    message: nextcord.Message
 
     message_reactions = message.reactions
 
@@ -56,11 +56,11 @@ async def sync_reactions(message: discord.Message, reactions: Iterable[str]):
         message_reaction_idx += 1
 
 
-async def send_reactions(message: discord.Message, reactions: Iterable[str]):
+async def send_reactions(message: nextcord.Message, reactions: Iterable[str]):
     message = await message.channel.fetch_message(message.id)
 
     for reaction in reactions:
-        message_reaction = discord.utils.get(message.reactions, emoji=reaction)
+        message_reaction = nextcord.utils.get(message.reactions, emoji=reaction)
         if message_reaction is None or not message_reaction.me:
             await message.add_reaction(reaction)
 
@@ -106,14 +106,14 @@ class ReactiveMessage(ABC):
     def __init__(self, bot, channel):
         self.bot = bot
 
-        self.channel: discord.TextChannel = channel
+        self.channel: nextcord.TextChannel = channel
 
-        self.bound_message: Optional[discord.Message] = None
+        self.bound_message: Optional[nextcord.Message] = None
 
-        self.current_displaying_render = None  # what is absolutely rendered to discord
+        self.current_displaying_render = None  # what is absolutely rendered to nextcord
         self.message_render = None
         # what should be rendered; both values can be different if permission checks fail
-        # as message render will be pointing to what should be rendered to discord if permissions
+        # as message render will be pointing to what should be rendered to nextcord if permissions
         # were granted
 
         self.running = True
@@ -131,7 +131,7 @@ class ReactiveMessage(ABC):
         raise NotImplementedError
 
     async def send(self):
-        message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
+        message_kwargs = await nextcord.utils.maybe_coroutine(self.render_message)
         await self.send_from_dict(message_kwargs)
 
     # noinspection PyArgumentList
@@ -198,7 +198,7 @@ class ReactiveMessage(ABC):
             await send_reactions(self.bound_message, reactions)
 
     async def update(self):
-        message_kwargs = await discord.utils.maybe_coroutine(self.render_message)
+        message_kwargs = await nextcord.utils.maybe_coroutine(self.render_message)
         await self.update_from_dict(message_kwargs)
 
     async def update_from_dict(self, d):
@@ -270,7 +270,7 @@ class ReactiveMessage(ABC):
                         else:
                             reaction_re_sync_required = True
 
-                except discord.Forbidden:
+                except nextcord.Forbidden:
                     reaction_re_sync_required = True
 
         if reaction_re_sync_required:
@@ -327,5 +327,5 @@ class ReactiveMessage(ABC):
             bound = self.bound_message
             self.bound_message = None
             if bound is not None:
-                with suppress(discord.NotFound):
+                with suppress(nextcord.NotFound):
                     await bound.delete()

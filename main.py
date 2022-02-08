@@ -1,12 +1,12 @@
+import functools
 import inspect
 import json
 import os
-from functools import wraps
 
-import discord
-from discord import PartialEmoji
-from discord.ext import commands
-from discord.message import convert_emoji_reaction
+import nextcord
+from nextcord import PartialEmoji
+from nextcord.ext import commands
+from nextcord.message import convert_emoji_reaction
 
 try:
     with open("config.json") as f:
@@ -28,24 +28,11 @@ def _listener_bind(method, self, obj):
             getattr(self, method)(func, attr)
 
 
-def _true_partial(func, *args, **kwargs):
-    # this exists because functool's partial returns a class instead of a function
-    # and we still want _listener_bind to receive 'self'
-
-    @wraps(func)
-    def wrapper(*g_args, **g_kwargs):
-        return func(*args, *g_args, **kwargs, **g_kwargs)
-
-    return wrapper
-
-
 class DiscordBot(commands.Bot):
     get_env_value = staticmethod(get_env_value)
 
     def __init__(self, command_prefix, **options):
         super().__init__(command_prefix, **options)
-
-        self.load_extension("jishaku")
 
         with open("cogs/cogs") as cogs_file:
             for line in cogs_file.readlines():
@@ -55,7 +42,7 @@ class DiscordBot(commands.Bot):
                 print(f"loaded {line}")
 
     async def on_ready(self):
-        await self.change_presence(activity=discord.Game(name=f"prefix {self.command_prefix}command"))
+        await self.change_presence(activity=nextcord.Game(name=f"prefix {self.command_prefix}command"))
 
     def dispatch(self, event_name, *args, **kwargs):
         super().dispatch("event", event_name, *args, **kwargs)
@@ -82,18 +69,17 @@ class DiscordBot(commands.Bot):
         else:
             try:
                 return await channel.create_webhook(name="qc")
-            except discord.Forbidden:
+            except nextcord.Forbidden:
                 return None
 
-    add_listener_object = _true_partial(_listener_bind, "add_listener")
-    remove_listener_object = _true_partial(_listener_bind, "remove_listener")
+    add_listener_object = functools.partialmethod(_listener_bind, "add_listener")
+    remove_listener_object = functools.partialmethod(_listener_bind, "remove_listener")
 
 
 if __name__ == "__main__":
     token = get_env_value("token")
     prefix = get_env_value("prefix")
 
-    intents = discord.Intents.default()
-    intents.dm_reactions = True
+    intents = nextcord.Intents.default()
 
     DiscordBot(prefix, help_command=commands.MinimalHelpCommand(), case_insensitive=True, intents=intents).run(token)

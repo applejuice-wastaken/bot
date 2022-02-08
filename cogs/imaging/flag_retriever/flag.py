@@ -7,7 +7,7 @@ from io import BytesIO, StringIO
 import aiofiles
 import aiohttp
 from PIL import Image
-from discord.ext import commands
+from nextcord.ext import commands
 from reportlab.graphics import renderPM
 from svglib.svglib import svg2rlg
 
@@ -45,7 +45,7 @@ class Flag:
         return await loop.run_in_executor(None, partial(Image.open, io))
 
     @classmethod
-    async def convert(cls, ctx, argument) -> Flag:
+    async def convert(cls, _, argument) -> Flag:
         from cogs.imaging.flag_retriever import get_flag
 
         if ":" in argument:

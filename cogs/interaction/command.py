@@ -1,13 +1,13 @@
-from __future__ import annotations
-
 import inspect
 import typing
 
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord import Interaction
+from nextcord.ext import commands
 from phrase_reference_builder.build import PhraseBuilder
 from phrase_reference_builder.types import MaybeReflexive
 
+from util.interops import CommandInterop, ResponseKind
 from .argument import RelativeMemberConverter
 from .fragments import author, condition
 
@@ -24,30 +24,11 @@ def interaction_command_factory(name, *,
                                 author + " could not do this to " + MaybeReflexive(author, condition),
                                 mutual=True,
                                 condition_predicate=lambda _, __: True):
-    async def command(self, ctx, *users: RelativeMemberConverter):
+    async def impl_interaction(resp: CommandInterop, cog, author_user, *users: nextcord.Member):
+        users: typing.List[nextcord.Member] = list(users)
 
-        message = await make_response(self, ctx, *users)
-
-        if message is not None:
-            async def unload():
-                await message.delete()
-
-            ctx.bot.get_cog("Uninvoke").create_unload(ctx.message, unload)
-
-    command.__doc__ = f"executes a {name} action towards selected users, if allowed"
-
-    async def make_response(self, ctx, *users: discord.Member):
-        users: typing.List[discord.Member] = list(users)
-
-        if mutual and not user_accepts(ctx.author, name, "thing"):
-            return await ctx.send(f"But you don't like that")
-
-        if ctx.message.reference is not None:
-            referenced: discord.Message
-            referenced = (ctx.message.reference.cached_message or
-                          await ctx.message.channel.fetch_message(ctx.message.reference.message_id))
-
-            users.append(referenced.author)
+        if mutual and not user_accepts(author_user, name, "thing"):
+            return await resp.respond(f"But you don't like that", kind=ResponseKind.FAILURE)
 
         allowed = []
         role_denied = []
@@ -56,7 +37,7 @@ def interaction_command_factory(name, *,
         for user in users:
             # noinspection PyTypeChecker
             if user_accepts(user, name, "thing"):
-                if condition_predicate(ctx.author, user):
+                if condition_predicate(author_user, user):
                     allowed.append(user)
                 else:
                     condition_denied.append(user)
@@ -64,7 +45,7 @@ def interaction_command_factory(name, *,
                 role_denied.append(user)
 
         if not users:
-            return await ctx.send("No users", allowed_mentions=discord.AllowedMentions.none())
+            return await resp.respond("No users", allowed_mentions=nextcord.AllowedMentions.none())
 
         title_baking = []
 
@@ -83,50 +64,50 @@ def interaction_command_factory(name, *,
             description_baking.extend(condition_rejected)
 
         with PhraseBuilder() as builder:
-            builder.referenced.append(builder.convert_to_entity_collection(ctx.bot.user)[0])
-            title = builder.build(title_baking, speaker=ctx.bot.user,
-                                  deferred={"action_author": ctx.author,
+            builder.referenced.append(builder.convert_to_entity_collection(cog.bot.user)[0])
+            title = builder.build(title_baking, speaker=cog.bot.user,
+                                  deferred={"action_author": author_user,
                                             "valid": allowed,
                                             "rejected": role_denied,
                                             "condition": condition_denied})
 
             if title == "":
-                title = discord.Embed.Empty
+                title = nextcord.Embed.Empty
 
             elif len(title) > 256:
-                return await ctx.message.reply(embed=discord.Embed(title="(ಠ_ಠ)"),
-                                               allowed_mentions=discord.AllowedMentions.none())
+                return await resp.respond(embed=nextcord.Embed(title="(ಠ_ಠ)"),
+                                          allowed_mentions=nextcord.AllowedMentions.none())
 
-            description = builder.build(description_baking, speaker=ctx.bot.user,
-                                        deferred={"action_author": ctx.author,
+            description = builder.build(description_baking, speaker=cog.bot.user,
+                                        deferred={"action_author": author_user,
                                                   "valid": allowed,
                                                   "rejected": role_denied,
                                                   "condition": condition_denied})
 
             if connotation is not None and \
-                    ((not role_denied and not condition_denied) and ctx.bot.user in allowed):
+                    ((not role_denied and not condition_denied) and cog.bot.user in allowed):
                 if connotation:
-                    self.karma += 1
+                    cog.karma += 1
 
-                    if self.karma > 5:
+                    if cog.karma > 5:
                         description += " :D"
 
                     else:
                         description += " :)"
 
                 else:
-                    self.karma -= 1
+                    cog.karma -= 1
 
-                    if self.karma < -5:
+                    if cog.karma < -5:
                         description += " :(((((((("
 
                     else:
                         description += " :("
 
             if description == "":
-                description = discord.Embed.Empty
+                description = nextcord.Embed.Empty
 
-        embed = discord.Embed(title=title, description=description)
+        embed = nextcord.Embed(title=title, description=description)
 
         if image_processor is not None and len(allowed) > 0:
             if callable(image_processor):
@@ -137,20 +118,41 @@ def interaction_command_factory(name, *,
 
             embed.set_image(url=image)
 
-        return await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        return await resp.respond(embed=embed, allowed_mentions=nextcord.AllowedMentions.none())
 
-    command = commands.guild_only()(commands.Command(command, name=name))
+    async def c_command(self, ctx, *users: RelativeMemberConverter):
+        users = list(users)
+
+        if ctx.message.reference is not None:
+            referenced: nextcord.Message
+            referenced = (ctx.message.reference.cached_message or
+                          await ctx.message.channel.fetch_message(ctx.message.reference.message_id))
+
+            users.append(referenced.author)
+
+        await impl_interaction(CommandInterop.from_command(ctx), self, ctx.send, ctx.author, *users)
+
+    async def s_command(self, interaction: Interaction, user: nextcord.Member):
+        await impl_interaction(await CommandInterop.from_slash_interaction(interaction), self, interaction.user, user)
+
+    c_command.__doc__ = f"executes a {name} action towards selected users, if allowed"
+
+    c_command = commands.guild_only()(commands.Command(c_command, name=name))
+    s_command = (nextcord.slash_command(name=name,
+                                        description=f"executes a {name} action towards selected user, if allowed")
+                 (s_command))
 
     # inject command into class by putting it into a variable in it's frame
-    inspect.currentframe().f_back.f_locals[f"_command_{name}"] = command
+    inspect.currentframe().f_back.f_locals[f"_command_c{name}"] = c_command
+    inspect.currentframe().f_back.f_locals[f"_command_s{name}"] = s_command
 
 
 def user_accepts(member, *actions):
-    if isinstance(member, discord.User) or member.discriminator == "0000":
+    if isinstance(member, nextcord.User) or member.discriminator == "0000":
         return True
 
     for action in actions:
-        role = discord.utils.get(member.roles, name=f"no {action}")
+        role = nextcord.utils.get(member.roles, name=f"no {action}")
 
         allowed = role is None
 

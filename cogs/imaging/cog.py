@@ -8,13 +8,11 @@ from functools import partial, wraps
 from io import BytesIO
 
 import aiohttp
-import discord
-import imagehash
+import nextcord
 from PIL import Image, ImageStat
 from PIL.ImageDraw import ImageDraw
-from discord.ext import commands
+from nextcord.ext import commands
 
-from .bot_avatar import get_new_avatar
 from .flag_retriever.flag import Flag
 from .resize import center_resize
 
@@ -70,29 +68,29 @@ def stitch_flags(size, *flags: Image):
     return ret
 
 
-async def try_get_image(ctx: commands.Context, user: typing.Optional[discord.Member]):
+async def try_get_image(ctx: commands.Context, user: typing.Optional[nextcord.Member]):
     if user is not None:
-        return await user.avatar_url_as().read()
+        return await user.avatar.read()
 
     if ctx.message.reference is None:
         target = ctx.message
     else:
         target = await ctx.channel.fetch_message(ctx.message.reference.message_id)
 
-    target: discord.Message
+    target: nextcord.Message
 
     if target.attachments:
         return await target.attachments[0].read()
 
     else:
-        return await target.author.avatar_url_as().read()
+        return await target.author.avatar.read()
 
 
 def generic_flag_command(name):
     def wrapper(func):
         func = image_as_io(func)
 
-        async def command(self, ctx, user: typing.Optional[discord.Member], *, flag: Flag):
+        async def command(self, ctx, user: typing.Optional[nextcord.Member], *, flag: Flag):
             self: Imaging
 
             await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
@@ -110,9 +108,9 @@ def generic_flag_command(name):
                 except BadImageInput:
                     await ctx.send(f"This flag type is unsupported")
                 else:
-                    await ctx.send(file=discord.File(io, "output.png"))
+                    await ctx.send(file=nextcord.File(io, "output.png"))
 
-        async def mixin(self, ctx, user: typing.Optional[discord.Member], *flags: Flag):
+        async def mixin(self, ctx, user: typing.Optional[nextcord.Member], *flags: Flag):
             if len(flags) == 0:
                 await ctx.send(f"no flags provided")
                 return
@@ -149,7 +147,7 @@ def generic_flag_command(name):
                 except BadImageInput:
                     await ctx.send(f"This flag type is unsupported")
                 else:
-                    await ctx.send(file=discord.File(io, "output.png"))
+                    await ctx.send(file=nextcord.File(io, "output.png"))
 
         command.__doc__ = func.__doc__
         mixin.__doc__ = func.__doc__
@@ -183,13 +181,11 @@ class Imaging(commands.Cog):
 
         self.cooldown_mapping = commands.CooldownMapping.from_cooldown(1, 5.0, commands.BucketType.user)
 
-        self.bot.loop.create_task(self.manage_bot_avatar())
-
     async def cog_before_invoke(self, ctx):
         bucket = self.cooldown_mapping.get_bucket(ctx.message)
         retry_after = bucket.update_rate_limit()
         if retry_after:
-            raise commands.CommandOnCooldown(bucket.per, retry_after)
+            raise commands.CommandOnCooldown(bucket, bucket.per, commands.BucketType.user)
 
     @generic_flag_command("circle")
     def flag_executor(self, user, flag):
@@ -220,9 +216,9 @@ class Imaging(commands.Cog):
 
             io = await self.execute(image_as_io(lambda sf: sf), opened_flag)
 
-            file = discord.File(io, filename="v.png")
-            print(pix)
-            e = discord.Embed(color=discord.Color.from_rgb(*pix[:3]))
+            file = nextcord.File(io, filename="v.png")
+
+            e = nextcord.Embed(color=nextcord.Color.from_rgb(*pix[:3]))
             e.set_image(url="attachment://v.png")
             await ctx.send(f"`{flag.name}`, provided by {flag.provider}", file=file, embed=e)
 
@@ -260,13 +256,13 @@ class Imaging(commands.Cog):
             except BadImageInput:
                 await ctx.send(f"This flag type is unsupported")
             else:
-                file = discord.File(io, filename="v.png")
-                e = discord.Embed(color=discord.Color.from_rgb(*pix))
+                file = nextcord.File(io, filename="v.png")
+                e = nextcord.Embed(color=nextcord.Color.from_rgb(*pix))
                 e.set_image(url="attachment://v.png")
                 await ctx.send(f"using:\n{listing}", file=file, embed=e)
 
     @commands.command(name="avatar", aliases=("pfp",))
-    async def avatar(self, ctx, target: discord.User = None):
+    async def avatar(self, ctx, target: nextcord.User = None):
         target = ctx.author if target is None else target
 
         asset = target.avatar_url_as()
@@ -275,40 +271,17 @@ class Imaging(commands.Cog):
         try:
             pix = await self.execute(find_mean_color, user_bin)
         except BadImageInput:
-            # given that it's from discord, it should not come here
+            # given that it's from nextcord, it should not come here
             # because pillow would theoretically support it
             pix = (0, 0, 0)
 
-        embed = discord.Embed(color=discord.Color.from_rgb(*pix))
+        embed = nextcord.Embed(color=nextcord.Color.from_rgb(*pix))
         embed.set_image(url=str(asset))
         await ctx.send(f"{target.mention}'s profile picture", embed=embed,
-                       mention_author=discord.AllowedMentions.none())
+                       mention_author=nextcord.AllowedMentions.none())
 
     def execute(self, func, *args, **kwargs):
         return self.loop.run_in_executor(self.process_pool, partial(func, *args, **kwargs))
-
-    async def manage_bot_avatar(self):
-        await asyncio.sleep(60 * 10)
-        await self.bot.wait_until_ready()
-
-        while True:
-            await self.change_bot_avatar()
-            await asyncio.sleep(time_until_end_of_day().total_seconds() + 1)
-
-    async def change_bot_avatar(self):
-        avatar = await get_new_avatar(self)
-        io = await self.execute(image_as_io(lambda sf: sf), avatar)
-
-        trying = True
-        while trying:
-            try:
-                await self.bot.user.edit(avatar=io.read())
-                trying = False
-            
-            except discord.HTTPException:
-                pass
-
-            await asyncio.sleep(60 * 10)
 
 
 def time_until_end_of_day(dt=None):
