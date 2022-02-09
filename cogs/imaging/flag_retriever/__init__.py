@@ -23,3 +23,15 @@ async def get_flag(name, schema=None) -> typing.Optional[Flag]:
 
             if ret is not None:
                 return ret
+
+
+async def search(name, schema=None) -> typing.Set[str]:
+    ret = set()
+
+    for retriever in get_retrievers():
+        if schema is None or retriever.schema == schema:
+            this_ret = await retriever.search(name)
+
+            ret |= this_ret
+
+    return ret

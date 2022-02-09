@@ -17,3 +17,6 @@ class FlagRetriever(abc.ABC):
     @abc.abstractmethod
     async def get_flag(self, name) -> typing.Optional[Flag]:
         pass
+
+    async def search(self, name) -> typing.Set[str]:
+        return set()

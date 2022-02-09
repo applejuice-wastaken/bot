@@ -59,5 +59,8 @@ class LocalFlagRetriever(FlagRetriever):
         if match:
             return Flag(self.files[match[0]], match[0], str(self), is_remote=False)
 
+    async def search(self, name) -> typing.Set[str]:
+        return set(key for key in self.files.keys() if key.startswith(name))
+
     def __str__(self):
         return "local storage"

@@ -1,8 +1,6 @@
 import asyncio
 import datetime
-import inspect
 import os
-import typing
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
@@ -10,10 +8,10 @@ from io import BytesIO
 import aiohttp
 import nextcord
 from PIL import Image, ImageStat
-from PIL.ImageDraw import ImageDraw
 from nextcord.ext import commands
-from render.execute import run_scene
 
+from .command import generic_flag_command, stitch_flags
+from .executor import execute
 from .flag_retriever.flag import Flag
 from .resize import center_resize
 from .scenery import FlagOverlayScene
@@ -23,63 +21,12 @@ async def retrieve(url):
     async with aiohttp.request("GET", url) as image_response:
         return await image_response.read()
 
-process_pool = ThreadPoolExecutor(2)
-
-
-def execute(func, *args, **kwargs):
-    loop = asyncio.get_running_loop()
-    return loop.run_in_executor(process_pool, partial(func, *args, **kwargs))
-
 
 def to_io(image):
     output_buffer = BytesIO()
     image.save(output_buffer, "PNG")
     output_buffer.seek(0)
     return output_buffer
-
-
-async def execute_scene(ctx, scene) -> typing.Union[typing.Tuple[None, None], typing.Tuple[BytesIO, float]]:
-    loop = asyncio.get_running_loop()
-    message = await ctx.send("Rendering Image...")
-
-    can_send = True
-
-    async def update(io: BytesIO, t):
-        details = [
-            f"Size: {round(len(io.getbuffer()) / 1024 / 1024, 4)}MB",
-            f"Frame Second: {t}s"
-        ]
-        d = '\n'.join('    ' + detail for detail in details)
-
-        await message.edit(f"Rendering Image...\n{d}")
-
-    def callback(io, t):
-        nonlocal can_send
-
-        if can_send:
-            can_send = False
-            loop.create_task(update(io, t))
-            loop.call_later(5, deexhaust)
-
-        return len(io.getbuffer()) / 1024 / 1024 < 8
-
-    def deexhaust():
-        nonlocal can_send
-        can_send = True
-
-    future = execute(run_scene, scene, callback=callback)
-
-    try:
-        ret = await future
-
-    except RuntimeError:
-        await message.edit("File has grown too big")
-        scene.cleanup_objects()
-        return None, None
-
-    else:
-        await message.delete()
-        return ret
 
 
 def asset_path(name):
@@ -89,143 +36,6 @@ def asset_path(name):
 
 class BadImageInput(Exception):
     pass
-
-
-def stitch_flags(size, *flags: Image):
-    mask = Image.new("L", size, 0)
-    ret = Image.new("RGB", size, (0, 0, 0))
-
-    mask_drawer = ImageDraw(mask)
-
-    spacing = 1 / (len(flags) - 1) * size[0]
-
-    def generate_point_for_idx(index):
-        return index * spacing, size[1] if index % 2 == 0 else 0
-
-    for idx, flag in enumerate(flags):
-        points = [*generate_point_for_idx(idx - 1), *generate_point_for_idx(idx), *generate_point_for_idx(idx + 1)]
-
-        mask_drawer.polygon(points, 255)
-
-        flag = center_resize(flag, *size)
-
-        ret.paste(flag, mask=mask)
-
-        mask_drawer.rectangle((0, 0) + mask.size, 0)  # clear
-
-    return ret
-
-
-async def try_get_image(ctx: commands.Context, user: typing.Optional[nextcord.Member]):
-    if user is not None:
-        return await user.avatar.read()
-
-    if ctx.message.reference is None:
-        target = ctx.message
-    else:
-        target = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-
-    target: nextcord.Message
-
-    if target.attachments:
-        return await target.attachments[0].read()
-
-    else:
-        return await target.author.avatar.read()
-
-
-def generic_flag_command(name):
-    def wrapper(func):
-        async def command(self, ctx, user: typing.Optional[nextcord.Member], *, flag: Flag):
-            self: Imaging
-
-            m = None
-
-            if self.execution_semaphore.locked():
-                m = await ctx.send("Awaiting for slots")
-
-            async with self.execution_semaphore:
-                if m is not None:
-                    await m.delete()
-
-                await ctx.send(f"using `{flag.name}` flag provided by {flag.provider}")
-
-                async with ctx.typing():
-                    flag = await flag.open()
-
-                    user_bin = await try_get_image(ctx, user)
-
-                    try:
-                        user = await execute(Image.open, BytesIO(user_bin))
-                        scene = await execute(func, self, user, flag)
-                        io, animated = await execute_scene(ctx, scene)
-
-                    except BadImageInput:
-                        await ctx.send(f"This flag type is unsupported")
-                    else:
-                        if io is not None:
-                            io.seek(0)
-                            await ctx.send(file=nextcord.File(io, f"output.{'gif' if animated else 'png'}"))
-
-        async def mixin(self, ctx, user: typing.Optional[nextcord.Member], *flags: Flag):
-            if len(flags) == 0:
-                await ctx.send(f"no flags provided")
-                return
-
-            listing = "\n".join(f"    `{flag.name}` flag provided by {flag.provider}" for flag in flags)
-
-            if len(flags) < 2:
-                await ctx.send(f"insufficient flags:\n{listing}")
-                return
-
-            m = None
-
-            if self.execution_semaphore.locked():
-                m = await ctx.send("Awaiting for slots")
-
-            async with self.execution_semaphore:
-                if m is not None:
-                    await m.delete()
-
-                await ctx.send(f"using:\n{listing}")
-
-                async with ctx.typing():
-                    opened_flags = []
-                    flags_url = {}
-
-                    for flag in flags:
-                        if flag.url in flags_url:
-                            opened_flags.append(flags_url[flag.url])
-                        else:
-                            image = await flag.open()
-                            opened_flags.append(image)
-                            flags_url[flag.url] = image
-
-                    user_bin = await try_get_image(ctx, user)
-
-                    try:
-                        user = await execute(Image.open, BytesIO(user_bin))
-                        stitched_flag = await execute(stitch_flags, user.size, *opened_flags)
-                        scene = await execute(func, self, user, stitched_flag)
-                        io, animated = await execute_scene(ctx, scene)
-
-                    except BadImageInput:
-                        await ctx.send(f"This flag type is unsupported")
-                    else:
-                        if io is not None:
-                            io.seek(0)
-                            await ctx.send(file=nextcord.File(io, f"output.{'gif' if animated else 'png'}"))
-
-        command.__doc__ = func.__doc__
-        mixin.__doc__ = func.__doc__
-
-        c = commands.group(name=name, invoke_without_command=True)(command)
-
-        inspect.currentframe().f_back.f_locals[f"_command_{name}_mixin"] = c.command(name="mixin")(mixin)
-
-        return c
-
-    return wrapper
 
 
 def find_mean_color(image):
@@ -254,20 +64,21 @@ class Imaging(commands.Cog):
             raise commands.CommandOnCooldown(bucket, bucket.per, commands.BucketType.user)
 
     @generic_flag_command("circle")
-    def flag_executor(self, user, flag):
+    def flag_executor(self, user, flag, *, rotate, fps):
         """retrieves a flag and returns your profile picture with it in the edge"""
         flag = center_resize(flag, *user.size)
         edge = Image.open(asset_path("profile_edge.png")).resize(user.size).convert('L')
 
-        return FlagOverlayScene(user, edge, flag)
+        return FlagOverlayScene(user, edge, flag, rotate=rotate, fps=fps)
 
     @generic_flag_command("overlay")
-    def overlay_executor(self, user, flag):
+    def overlay_executor(self, user, flag, *, rotating, fps):
         """retrieves a flag and overlays it over your profile picture"""
         flag = center_resize(flag, *user.size)
+        flag = flag.resize((int(flag.size[0] * 1.5), int(flag.size[1] * 1.5)))
         mask = Image.new('L', user.size, 128)
 
-        return FlagOverlayScene(user, mask, flag)
+        return FlagOverlayScene(user, mask, flag, rotate=rotate, fps=fps)
 
     @commands.group(name="flag", invoke_without_command=True)
     async def show_flag(self, ctx: commands.Context, *, flag: Flag):

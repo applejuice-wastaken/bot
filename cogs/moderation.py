@@ -8,7 +8,7 @@ from nextcord.ext import commands
 from nextcord import SlashOption, Interaction
 
 from util.human_join_list import human_join_list
-from util.interops import CommandInterop, ResponseKind, CommandType
+from util.interops import CommandInterop, ResponseKind, TraditionalCommandInterop
 
 
 @dataclasses.dataclass(frozen=True)
@@ -76,7 +76,7 @@ class Moderation(commands.Cog):
 
             main_chunk = f"Deleted {deleted} Messages"
 
-            if resp.kind == CommandType.COMMAND:
+            if isinstance(resp, TraditionalCommandInterop):
                 main_chunk += f" issued by {human_join_list([author.mention for author in authors])}"
 
             appended_info = []
@@ -137,7 +137,7 @@ class Moderation(commands.Cog):
             await interaction.send("You can't use this command", ephemeral=True)
             return
 
-        await self.impl_purge_quantity(await CommandInterop.from_slash_interaction(interaction), quantity)
+        await self.impl_purge_quantity(CommandInterop.from_slash_interaction(interaction), quantity)
 
     # purge until command
 
@@ -155,7 +155,7 @@ class Moderation(commands.Cog):
             await interaction.send("You can't use this command", ephemeral=True)
             return
 
-        await self.impl_purge_until(await CommandInterop.from_slash_interaction(interaction), message)
+        await self.impl_purge_until(CommandInterop.from_slash_interaction(interaction), message)
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):

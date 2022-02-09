@@ -59,5 +59,23 @@ class LGBTFlagRetriever(FlagRetriever):
 
         return None
 
+    async def search(self, name) -> typing.Set[str]:
+        if len(name) == 0:
+            return set()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://lgbta.wikia.org/api.php?action=query&"
+                                   f"list=search&srsearch={urllib.parse.quote(name)}"
+                                   f"&format=json") as search_response:
+                json_content = await search_response.json()
+                pages = json_content["query"]["search"]
+
+                if pages:
+                    # there's results
+
+                    return set(page["title"] for page in pages[:5])
+
+        return set()
+
     def __str__(self):
         return "lgbt wiki"
