@@ -72,7 +72,7 @@ class Imaging(commands.Cog):
         return FlagOverlayScene(user, edge, flag, rotate=rotate, fps=fps)
 
     @generic_flag_command("overlay")
-    def overlay_executor(self, user, flag, *, rotating, fps):
+    def overlay_executor(self, user, flag, *, rotate, fps):
         """retrieves a flag and overlays it over your profile picture"""
         flag = center_resize(flag, *user.size)
         flag = flag.resize((int(flag.size[0] * 1.5), int(flag.size[1] * 1.5)))
