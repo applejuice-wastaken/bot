@@ -130,7 +130,7 @@ def interaction_command_factory(name, *,
 
             users.append(referenced.author)
 
-        await impl_interaction(CommandInterop.from_command(ctx), self, ctx.send, ctx.author, *users)
+        await impl_interaction(CommandInterop.from_command(ctx), self, ctx.author, *users)
 
     async def s_command(self, interaction: Interaction, user: nextcord.Member):
         await impl_interaction(await CommandInterop.from_slash_interaction(interaction), self, interaction.user, user)
