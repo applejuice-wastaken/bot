@@ -74,7 +74,7 @@ class InfoCog(commands.Cog):
         if user is None:
             user = interaction.user
 
-        await self.impl_user(await CommandInterop.from_slash_interaction(interaction), user)
+        await self.impl_user(CommandInterop.from_slash_interaction(interaction), user)
 
     @commands.command(name="user")
     async def c_user(self, ctx, user: nextcord.Member = None):
@@ -83,7 +83,7 @@ class InfoCog(commands.Cog):
         if user is None:
             user = ctx.author
 
-        await self.impl_user(await CommandInterop.from_command(ctx), user)
+        await self.impl_user(CommandInterop.from_command(ctx), user)
 
 
 def date(d):

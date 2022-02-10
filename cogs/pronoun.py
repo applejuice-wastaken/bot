@@ -90,7 +90,7 @@ class Pronouns(commands.Cog):
         if user is None:
             user = interaction.user
 
-        await impl_pronoun_get(await CommandInterop.from_slash_interaction(interaction), user)
+        await impl_pronoun_get(CommandInterop.from_slash_interaction(interaction), user)
 
     # pronoun test command
 
@@ -103,7 +103,7 @@ class Pronouns(commands.Cog):
     async def s_pronoun_test(self, interaction, pronoun=SlashOption("pronoun", description="The pronoun")):
         """Tests a pronoun's representation"""
         pronoun: str
-        await impl_pronoun_test(await CommandInterop.from_slash_interaction(interaction), pronoun)
+        await impl_pronoun_test(CommandInterop.from_slash_interaction(interaction), pronoun)
 
     @s_pronoun_test.on_autocomplete("pronoun")
     async def s_pronoun_test_auto_pronoun(self, interaction, pronoun: str):

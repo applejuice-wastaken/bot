@@ -133,7 +133,7 @@ def interaction_command_factory(name, *,
         await impl_interaction(CommandInterop.from_command(ctx), self, ctx.author, *users)
 
     async def s_command(self, interaction: Interaction, user: nextcord.Member):
-        await impl_interaction(await CommandInterop.from_slash_interaction(interaction), self, interaction.user, user)
+        await impl_interaction(CommandInterop.from_slash_interaction(interaction), self, interaction.user, user)
 
     c_command.__doc__ = f"executes a {name} action towards selected users, if allowed"
 
