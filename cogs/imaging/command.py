@@ -113,7 +113,7 @@ def generic_flag_command(name):
         async def c_mixin(self, ctx, user: typing.Optional[nextcord.Member], *flags: Flag):
             await impl_command(CommandInterop.from_command(ctx), self, user, *flags)
 
-        s_command = (nextcord.slash_command(name=name, description=func.__doc__)
+        s_command = (nextcord.slash_command(name=name, description=func.__doc__, guild_ids=[473890635972083733])
                      (s_command))
 
         @s_command.on_autocomplete("flag_names")
@@ -133,7 +133,7 @@ def generic_flag_command(name):
             ret.sort(key=lambda x: difflib.SequenceMatcher(None, x, current).ratio(), reverse=True)
 
             if len(split) == 2:
-                ret = list(split[0] + res for res in ret)
+                ret = list(split[0] + "," + res for res in ret)
 
             await interaction.response.send_autocomplete(ret[:25])
 
@@ -151,9 +151,8 @@ def generic_flag_command(name):
     return wrapper
 
 
-async def execute_scene(resp: CommandInterop, scene, *, quality: int = 100) -> typing.Union[typing.Tuple[None, None],
-                                                                                            typing.Tuple[
-                                                                                                BytesIO, float]]:
+async def execute_scene(resp: CommandInterop, scene) -> typing.Union[typing.Tuple[None, None],
+                                                                     typing.Tuple[BytesIO, float]]:
     execution_chunk = resp.chunk()
 
     loop = asyncio.get_running_loop()
@@ -162,8 +161,12 @@ async def execute_scene(resp: CommandInterop, scene, *, quality: int = 100) -> t
     can_send = True
 
     async def update(io: BytesIO, t):
+        nonlocal can_send
+
+        mb = len(io.getbuffer()) / 1024 / 1024
+        bar_size = int(mb / 8 * 20)
         details = [
-            f"Size: {round(len(io.getbuffer()) / 1024 / 1024, 4)}MB",
+            f"Size: {round(mb, 4)}MB `[{bar_size * '▓' + (20 - bar_size) * '░'}]`",
             f"Frame Second: {round(t, 2)}s"
         ]
         d = '\n'.join('    ' + detail for detail in details)
