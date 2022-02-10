@@ -113,7 +113,7 @@ def generic_flag_command(name):
         async def c_mixin(self, ctx, user: typing.Optional[nextcord.Member], *flags: Flag):
             await impl_command(CommandInterop.from_command(ctx), self, user, *flags)
 
-        s_command = (nextcord.slash_command(name=name, description=func.__doc__, guild_ids=[473890635972083733])
+        s_command = (nextcord.slash_command(name=name, description=func.__doc__)
                      (s_command))
 
         @s_command.on_autocomplete("flag_names")
