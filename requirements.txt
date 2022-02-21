@@ -1,8 +1,6 @@
 Pillow~=9.0.1
 async_lru
 aiofiles~=0.6.0
-reportlab~=3.5.67
-svglib~=1.1.0
 humanize~=3.10.0
 emoji~=1.4.1
 git+git://github.com/applejuice-wastaken/phrase-reference-builder.git@5126b7a8ee099ca521b9296b95df7978347a7767

@@ -1,8 +1,6 @@
 import asyncio
 import datetime
 import os
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from io import BytesIO
 
 import aiohttp
@@ -12,6 +10,7 @@ from nextcord.ext import commands
 
 from .command import generic_flag_command, stitch_flags
 from .executor import execute
+from .flag_retriever.exceptions import FlagOpenError
 from .flag_retriever.flag import Flag
 from .resize import center_resize
 from .scenery import FlagOverlayScene
@@ -84,7 +83,13 @@ class Imaging(commands.Cog):
     async def show_flag(self, ctx: commands.Context, *, flag: Flag):
         """shows a flag"""
         async with ctx.typing():
-            opened_flag = await flag.open()
+            try:
+                opened_flag = await flag.open()
+
+            except FlagOpenError as e:
+                await ctx.send(f"Cannot open flag {flag.name} in url <{flag.safe_url}> as {str(e)}")
+                return
+
             pix = await execute(find_mean_color, opened_flag)
 
             io = await execute(to_io, opened_flag)
@@ -115,7 +120,12 @@ class Imaging(commands.Cog):
                 if flag.url in flags_url:
                     opened_flags.append(flags_url[flag.url])
                 else:
-                    image = await flag.open()
+                    try:
+                        image = await flag.open()
+
+                    except FlagOpenError as e:
+                        await ctx.send(f"Cannot open flag {flag.name} in url <{flag.safe_url}> as {str(e)}")
+
                     opened_flags.append(image)
                     flags_url[flag.url] = image
 

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import typing
 from functools import partial
-from io import BytesIO, StringIO
+from io import BytesIO
 
 import aiofiles
 import aiohttp
 from PIL import Image
 from nextcord.ext import commands
-from reportlab.graphics import renderPM
-from svglib.svglib import svg2rlg
+
+from .exceptions import FlagOpenError
 
 
 class Flag:
@@ -19,7 +20,7 @@ class Flag:
         self.name = name
         self.url = url
 
-    async def read(self):
+    async def read(self) -> typing.Optional[bytes]:
         if self.is_remote:
             obj = aiohttp.request("GET", self.url)
         else:
@@ -28,21 +29,23 @@ class Flag:
         async with obj as reader:
             return await reader.read()
 
-    async def open(self):
+    async def open(self) -> typing.Optional[Image.Image]:
         data = await self.read()
 
         if b"<svg" in data:
             # maybe svg
-            drawing = svg2rlg(StringIO(data.decode()))
-            io = BytesIO()
-            renderPM.drawToFile(drawing, io, fmt="PNG")
+            raise FlagOpenError
         else:
             # maybe raster image
             io = BytesIO(data)
 
         loop = asyncio.get_running_loop()
 
-        return await loop.run_in_executor(None, partial(Image.open, io))
+        try:
+            return await loop.run_in_executor(None, partial(Image.open, io))
+
+        except Exception as e:
+            raise FlagOpenError from e
 
     @classmethod
     async def convert(cls, _, argument) -> Flag:
@@ -58,3 +61,11 @@ class Flag:
             raise commands.BadArgument(f"Flag `{argument}` not found.")
 
         return ret
+
+    @property
+    def safe_url(self):
+        if self.is_remote:
+            return self.url
+
+        else:
+            return "local-file"

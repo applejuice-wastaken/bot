@@ -13,6 +13,7 @@ from render.execute import run_scene
 
 from cogs.imaging.executor import execute
 from cogs.imaging.flag_retriever import Flag, search
+from cogs.imaging.flag_retriever.exceptions import FlagOpenError
 from cogs.imaging.resize import stitch_flags, try_get_image
 from cogs.imaging.scenery import RotateDirection
 from util.interops import CommandInterop, TraditionalCommandInterop
@@ -55,7 +56,13 @@ def generic_flag_command(name):
                         if flag.url in flags_url:
                             opened_flags.append(flags_url[flag.url])
                         else:
-                            image = await flag.open()
+                            try:
+                                image = await flag.open()
+
+                            except FlagOpenError as e:
+                                await resp.respond(f"Cannot open flag {flag.name} in url <{flag.url}> as {str(e)}")
+                                return
+
                             opened_flags.append(image)
                             flags_url[flag.url] = image
 
