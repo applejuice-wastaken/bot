@@ -12,11 +12,11 @@ from nextcord.ext import commands
 from render.execute import run_scene
 
 from cogs.imaging.executor import execute
-from cogs.imaging.flag_retriever import Flag, search
-from cogs.imaging.flag_retriever.exceptions import FlagOpenError
+from etcetra.flag_retriever import Flag, search
+from etcetra.flag_retriever.exceptions import FlagOpenError
 from cogs.imaging.resize import stitch_flags, try_get_image
 from cogs.imaging.scenery import RotateDirection
-from util.interops import CommandInterop, TraditionalCommandInterop
+from etcetra.interops import CommandInterop, TraditionalCommandInterop
 
 if TYPE_CHECKING:
     from cogs.imaging import Imaging

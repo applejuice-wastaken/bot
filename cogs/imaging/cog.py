@@ -10,8 +10,8 @@ from nextcord.ext import commands
 
 from .command import generic_flag_command, stitch_flags
 from .executor import execute
-from .flag_retriever.exceptions import FlagOpenError
-from .flag_retriever.flag import Flag
+from etcetra.flag_retriever.exceptions import FlagOpenError
+from etcetra.flag_retriever import Flag
 from .resize import center_resize
 from .scenery import FlagOverlayScene
 

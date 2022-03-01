@@ -1,8 +1,6 @@
 import functools
 import typing
 
-from async_lru import alru_cache
-
 from .abc import FlagRetriever
 from .flag import Flag
 

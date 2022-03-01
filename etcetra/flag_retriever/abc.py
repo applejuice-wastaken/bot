@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from cogs.imaging.flag_retriever.flag import Flag
+from etcetra.flag_retriever.flag import Flag
 
 
 class FlagRetriever(abc.ABC):

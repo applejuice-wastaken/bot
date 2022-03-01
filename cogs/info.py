@@ -5,8 +5,8 @@ import humanize
 from nextcord import SlashOption, Interaction
 from nextcord.ext import commands
 
-from util.interops import CommandInterop, ResponsePrivacyKind
-from util.pronouns import get_pronouns_from_member, convert_string_to_pronoun
+from etcetra.interops import CommandInterop, ResponsePrivacyKind
+from etcetra.pronouns import get_pronouns_from_member, convert_string_to_pronoun
 
 
 class InfoCog(commands.Cog):

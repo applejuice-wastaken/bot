@@ -7,8 +7,8 @@ import nextcord
 
 from games.Game import Game
 from games.GameSetting import GameSetting
-from reactive_message.HoistedReactiveMessage import HoistedReactiveMessage
-from reactive_message.RoutedReactiveMessage import RoutedReactiveMessage, Page, Route
+from etcetra.reactive_message import HoistedReactiveMessage
+from etcetra.reactive_message import RoutedReactiveMessage, Page, Route
 
 
 def convert(value, data_type: Type):
