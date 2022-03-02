@@ -5,8 +5,8 @@ from nextcord import SlashOption
 from nextcord.ext import commands
 from phrase_reference_builder.pronouns import Pronoun, PronounType, default_repository
 
-from util.interops import CommandInterop, ResponseKind, ResponsePrivacyKind
-from util.pronouns import convert_string_to_pronoun, get_pronouns_from_member
+from etcetra.interops import CommandInterop, ResponseKind, ResponsePrivacyKind
+from etcetra.pronouns import convert_string_to_pronoun, get_pronouns_from_member
 
 if typing.TYPE_CHECKING:
     pass

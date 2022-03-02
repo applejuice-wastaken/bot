@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, Iterable
 
 import nextcord
 
-from util.human_join_list import human_join_list
+from etcetra.human_join_list import human_join_list
 
 
 def process_render_changes(o: dict, n: dict) -> Dict[str, Any]:

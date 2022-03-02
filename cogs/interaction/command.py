@@ -7,7 +7,7 @@ from nextcord.ext import commands
 from phrase_reference_builder.build import PhraseBuilder
 from phrase_reference_builder.types import MaybeReflexive
 
-from util.interops import CommandInterop, ResponseKind
+from etcetra.interops import CommandInterop, ResponseKind
 from .argument import RelativeMemberConverter
 from .fragments import author, condition
 

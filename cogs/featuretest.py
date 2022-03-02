@@ -4,9 +4,9 @@ from typing import Dict, Any
 import nextcord
 from nextcord.ext import commands
 
-from reactive_message.HoistedReactiveMessage import HoistedReactiveMessage
-from reactive_message.ReactiveMessage import ReactiveMessage
-from reactive_message.RoutedReactiveMessage import RoutedReactiveMessage, Route, Page
+from etcetra.reactive_message import HoistedReactiveMessage
+from etcetra.reactive_message.ReactiveMessage import ReactiveMessage
+from etcetra.reactive_message import RoutedReactiveMessage, Route, Page
 
 
 class TestReactiveMessageBasis:

@@ -7,8 +7,8 @@ import nextcord
 from nextcord.ext import commands
 from nextcord import SlashOption, Interaction
 
-from util.human_join_list import human_join_list
-from util.interops import CommandInterop, ResponseKind, TraditionalCommandInterop
+from etcetra.human_join_list import human_join_list
+from etcetra.interops import CommandInterop, ResponseKind, TraditionalCommandInterop
 
 
 @dataclasses.dataclass(frozen=True)

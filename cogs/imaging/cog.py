@@ -8,12 +8,13 @@ import nextcord
 from PIL import Image, ImageStat
 from nextcord.ext import commands
 
-from .command import generic_flag_command, stitch_flags
+from etcetra.interops import CommandInterop
+from .command import generic_flag_command, stitch_flags, execute_scene
 from .executor import execute
-from .flag_retriever.exceptions import FlagOpenError
-from .flag_retriever.flag import Flag
+from etcetra.flag_retriever.exceptions import FlagOpenError
+from etcetra.flag_retriever import Flag
 from .resize import center_resize
-from .scenery import FlagOverlayScene
+from .scenery import FlagOverlayScene, HelicopterScene
 
 
 async def retrieve(url):
@@ -78,6 +79,16 @@ class Imaging(commands.Cog):
         mask = Image.new('L', user.size, 128)
 
         return FlagOverlayScene(user, mask, flag, rotate=rotate, fps=fps)
+
+    @commands.group(name="helicopter", invoke_without_command=True)
+    async def helicopter(self, ctx: commands.Context):
+        user_bin = await ctx.author.avatar.read()
+        user = await execute(Image.open, BytesIO(user_bin))
+        resp = CommandInterop.from_command(ctx)
+        io, animated = await execute_scene(resp, HelicopterScene(user))
+        io.seek(0)
+        await resp.respond(content="Render complete",
+                           file=nextcord.File(io, f"output.{'gif' if animated else 'png'}"))
 
     @commands.group(name="flag", invoke_without_command=True)
     async def show_flag(self, ctx: commands.Context, *, flag: Flag):

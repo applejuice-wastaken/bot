@@ -4,7 +4,7 @@ import aiohttp.client
 from nextcord.ext import commands
 from phrase_reference_builder.types import MaybeReflexive, was
 
-from util.pronouns import convert_string_to_pronoun
+from etcetra.pronouns import convert_string_to_pronoun
 from .command import interaction_command_factory
 from .fragments import author, valid, rejected
 

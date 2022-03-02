@@ -49,7 +49,7 @@ class Flag:
 
     @classmethod
     async def convert(cls, _, argument) -> Flag:
-        from cogs.imaging.flag_retriever import get_flag
+        from etcetra.flag_retriever import get_flag
 
         if ":" in argument:
             chunks = argument.split(":")

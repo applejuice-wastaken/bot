@@ -5,7 +5,7 @@ from typing import List, Sequence
 from games.Game import EndGame, LeaveReason
 from games.GameHasTimeout import GameWithTimeout
 from games.round.RoundAction import RoundAction, Category, Verb, Literal
-from util.human_join_list import human_join_list
+from etcetra.human_join_list import human_join_list
 
 
 def action_join(actions: Sequence[Sequence[Category]]):
