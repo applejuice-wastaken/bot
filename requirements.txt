@@ -1,5 +1,10 @@
 Pillow~=9.0.1
 async_lru
+
+reportlab~=3.5.67; sys_platform == "linux"
+./wheels/reportlab-3.6.9-cp310-cp310-win32.whl; sys_platform == "win32"
+
+svglib~=1.1.0
 aiofiles~=0.6.0
 humanize~=3.10.0
 emoji~=1.4.1

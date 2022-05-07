@@ -3,12 +3,15 @@ from __future__ import annotations
 import asyncio
 import typing
 from functools import partial
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import aiofiles
 import aiohttp
 from PIL import Image
 from nextcord.ext import commands
+
+from reportlab.graphics import renderPM
+from svglib.svglib import svg2rlg
 
 from .exceptions import FlagOpenError
 
@@ -34,7 +37,14 @@ class Flag:
 
         if b"<svg" in data:
             # maybe svg
-            raise FlagOpenError
+            try:
+                drawing = svg2rlg(data)
+                io = BytesIO()
+                renderPM.drawToFile(drawing, io, fmt="PNG")
+
+            except Exception as e:
+                print(e)
+                raise FlagOpenError from e
         else:
             # maybe raster image
             io = BytesIO(data)
