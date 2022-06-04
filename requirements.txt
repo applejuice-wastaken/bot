@@ -8,7 +8,7 @@ svglib~=1.1.0
 aiofiles~=0.6.0
 humanize~=3.10.0
 emoji~=1.4.1
-git+git://github.com/applejuice-wastaken/phrase-reference-builder.git@5126b7a8ee099ca521b9296b95df7978347a7767
-git+git://github.com/applejuice-wastaken/render.git@5e2269f2f3f334d2338b7cd9cfffb95ea24e60ed
+git+https://github.com/applejuice-wastaken/phrase-reference-builder.git@5126b7a8ee099ca521b9296b95df7978347a7767
+git+https://github.com/applejuice-wastaken/render.git@5e2269f2f3f334d2338b7cd9cfffb95ea24e60ed
 aiohttp~=3.8.1
 nextcord
